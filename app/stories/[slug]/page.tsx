@@ -1,6 +1,7 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createSupabaseClient } from '../../../lib/supabase/server'
+import { MOCK_STORIES } from '../../utils/mockData'
+import StoryViewer from './StoryViewer'
 
 export default async function StoryPage({
   params,
@@ -16,8 +17,33 @@ export default async function StoryPage({
     .eq('slug', slug)
     .single()
 
+  const mockStory = MOCK_STORIES.find((item) => item.slug === slug)
+
   if (storyError || !story) {
-    notFound()
+    if (!mockStory) {
+      notFound()
+    }
+
+    const fallbackSlides = mockStory.slides.map((slide, index) => ({
+      id: slide.id,
+      slide_order: index + 1,
+      headline: slide.title,
+      body: slide.content,
+      cta_text: null,
+      cta_url: null,
+    }))
+
+    return (
+      <StoryViewer
+        story={{
+          title: mockStory.title,
+          subtitle: mockStory.subtitle,
+          summary: mockStory.summary,
+        }}
+        slides={fallbackSlides}
+        impact={null}
+      />
+    )
   }
 
   const { data: slides, error: slidesError } = await supabase
@@ -26,71 +52,43 @@ export default async function StoryPage({
     .eq('story_id', story.id)
     .order('slide_order', { ascending: true })
 
+  const { data: storyStocks, error: storyStocksError } = await supabase
+    .from('story_stocks')
+    .select(`
+      relationship_type,
+      move_direction,
+      move_percent,
+      display_order,
+      stocks (
+        ticker,
+        company_name
+      )
+    `)
+    .eq('story_id', story.id)
+    .order('display_order', { ascending: true })
+
+  const primary = storyStocks?.filter(
+    (s: any) => s.relationship_type === 'primary'
+  )
+
+  const secondary = storyStocks?.filter(
+    (s: any) => s.relationship_type === 'secondary'
+  )
+
+  const primaryImpact = primary?.[0]
+
+  if (slidesError || !slides || slides.length === 0) {
+    return notFound()
+  }
+
   return (
-    <main style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
-      <Link href="/">← Back</Link>
-
-      <header style={{ marginTop: '16px', marginBottom: '24px' }}>
-        <h1>{story.title}</h1>
-        {story.subtitle && <p style={{ opacity: 0.8 }}>{story.subtitle}</p>}
-        {story.summary && <p>{story.summary}</p>}
-      </header>
-
-      {slidesError && (
-        <div style={{ color: 'red' }}>
-          <p>Failed to load slides:</p>
-          <pre>{slidesError.message}</pre>
-        </div>
-      )}
-
-      {!slidesError && (!slides || slides.length === 0) && (
-        <p>No slides found for this story.</p>
-      )}
-
-      {slides && slides.length > 0 && (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {slides.map((slide: any) => (
-            <section
-              key={slide.id}
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '12px',
-                padding: '20px',
-              }}
-            >
-              <p style={{ fontSize: '14px', opacity: 0.6, marginBottom: '8px' }}>
-                Slide {slide.slide_order}
-              </p>
-
-              {slide.headline && (
-                <h2 style={{ marginBottom: '12px' }}>{slide.headline}</h2>
-              )}
-
-              {slide.body && <p style={{ marginBottom: '12px' }}>{slide.body}</p>}
-
-              {slide.image_url && (
-                <p style={{ fontSize: '14px', opacity: 0.7 }}>
-                  Image URL: {slide.image_url}
-                </p>
-              )}
-
-              {slide.chart_url && (
-                <p style={{ fontSize: '14px', opacity: 0.7 }}>
-                  Chart URL: {slide.chart_url}
-                </p>
-              )}
-
-              {slide.cta_text && slide.cta_url && (
-                <p style={{ marginTop: '12px' }}>
-                  <a href={slide.cta_url} target="_blank" rel="noreferrer">
-                    {slide.cta_text}
-                  </a>
-                </p>
-              )}
-            </section>
-          ))}
-        </div>
-      )}
-    </main>
+    <StoryViewer
+      story={story}
+      slides={slides}
+      impact={{
+        moveDirection: primaryImpact?.move_direction ?? null,
+        movePercent: primaryImpact?.move_percent ?? null,
+      }}
+    />
   )
 }
