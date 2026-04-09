@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { COLORS } from '../../utils/colors';
-import { createSupabaseClient } from '../../../lib/supabase/server';
+import { getSupabaseClient } from '../../../lib/supabase/client';
 import { MOCK_STOCKS } from '../../utils/mockData';
 import type { Stock } from '../../types';
 
@@ -65,7 +65,7 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
     let isMounted = true;
 
     const loadSectorStocks = async () => {
-      const supabase = createSupabaseClient();
+      const supabase = getSupabaseClient();
 
       try {
         const { data, error } = await supabase

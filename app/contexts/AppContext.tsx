@@ -20,6 +20,9 @@ interface AppContextType {
   
   userPoints: number;
   addPoints: (points: number) => void;
+  articlesReadCount: number;
+  recordArticleRead: (articleId: string) => void;
+  hasReadArticle: (articleId: string) => boolean;
   
   user: UserProfile | null;
   setUser: (user: UserProfile) => void;
@@ -60,6 +63,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [referralInvites, setReferralInvites] = useState(0);
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [userPoints, setUserPoints] = useState(0);
+  const [readArticleIds, setReadArticleIds] = useState<string[]>([]);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [tutorialCompleted, setTutorialCompleted] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -69,6 +73,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savedFavourites = localStorage.getItem('investanews-favourites');
     const savedTasks = localStorage.getItem('investanews-tasks');
     const savedPoints = localStorage.getItem('investanews-points');
+    const savedReadArticleIds = localStorage.getItem('investanews-read-articles');
     const savedTileCount = localStorage.getItem('investanews-favourite-tiles');
     const savedReferralInvites = localStorage.getItem('investanews-referral-invites');
     const savedTutorial = localStorage.getItem('investanews-tutorial-completed');
@@ -77,6 +82,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedFavourites) setFavourites(JSON.parse(savedFavourites));
     if (savedTasks) setDailyTasks(JSON.parse(savedTasks));
     if (savedPoints) setUserPoints(parseInt(savedPoints, 10));
+    if (savedReadArticleIds) setReadArticleIds(JSON.parse(savedReadArticleIds));
     if (savedTileCount) setFavouriteTileCount(Math.max(3, parseInt(savedTileCount, 10) || 3));
     if (savedReferralInvites) setReferralInvites(parseInt(savedReferralInvites, 10) || 0);
     if (savedTutorial) setTutorialCompleted(JSON.parse(savedTutorial));
@@ -92,12 +98,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('investanews-favourites', JSON.stringify(favourites));
     localStorage.setItem('investanews-tasks', JSON.stringify(dailyTasks));
     localStorage.setItem('investanews-points', userPoints.toString());
+    localStorage.setItem('investanews-read-articles', JSON.stringify(readArticleIds));
     localStorage.setItem('investanews-favourite-tiles', favouriteTileCount.toString());
     localStorage.setItem('investanews-referral-invites', referralInvites.toString());
     localStorage.setItem('investanews-tutorial-completed', JSON.stringify(tutorialCompleted));
     if (user) localStorage.setItem('investanews-user', JSON.stringify(user));
     else localStorage.removeItem('investanews-user');
-  }, [favourites, dailyTasks, userPoints, favouriteTileCount, referralInvites, tutorialCompleted, user, mounted]);
+  }, [favourites, dailyTasks, userPoints, readArticleIds, favouriteTileCount, referralInvites, tutorialCompleted, user, mounted]);
 
   const addFavourite = (stock: Stock) => {
     const exists = favourites.some(fav => fav.stock.id === stock.id);
@@ -158,6 +165,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserPoints(prev => prev + points);
   };
 
+  const recordArticleRead = (articleId: string) => {
+    if (!articleId) return;
+    setReadArticleIds((prev) => (
+      prev.includes(articleId) ? prev : [...prev, articleId]
+    ));
+  };
+
+  const hasReadArticle = (articleId: string) => {
+    return readArticleIds.includes(articleId);
+  };
+
   const updateUser = (updatedUser: UserProfile) => {
     setUser(updatedUser);
   };
@@ -183,6 +201,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         getTodaysTasks,
         userPoints,
         addPoints,
+        articlesReadCount: readArticleIds.length,
+        recordArticleRead,
+        hasReadArticle,
         user,
         setUser: updateUser,
         tutorialCompleted,

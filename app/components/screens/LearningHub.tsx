@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, BookOpen, Bookmark } from 'lucide-react';
 import { Card, Button, Badge } from '../ui/Basic';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAppContext } from '../../contexts/AppContext';
 import { COLORS } from '../../utils/colors';
 
 interface LearningHubScreenProps {
@@ -58,6 +59,7 @@ const CATEGORIES = ['All', 'Beginner', 'Intermediate', 'Advanced'];
 
 export const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ onNavigate, onBack }) => {
   const { theme } = useTheme();
+  const { recordArticleRead, hasReadArticle } = useAppContext();
   const isDark = theme === 'dark';
   const textColor = isDark ? COLORS.dark.text : COLORS.light.text;
   const bgColor = isDark ? COLORS.dark.bg : COLORS.light.bg;
@@ -74,6 +76,10 @@ export const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ onNavigate
     setContent(content.map(item =>
       item.id === id ? { ...item, bookmarked: !item.bookmarked } : item
     ));
+  };
+
+  const handleReadArticle = (articleId: number) => {
+    recordArticleRead(String(articleId));
   };
 
   return (
@@ -127,8 +133,11 @@ export const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ onNavigate
 
       {/* Content List */}
       <div className="px-4 grid gap-4">
-        {filteredContent.map(item => (
-          <Card key={item.id} className="p-4">
+        {filteredContent.map(item => {
+          const isRead = hasReadArticle(String(item.id));
+
+          return (
+            <Card key={item.id} className="p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <Badge variant="sector" color={
@@ -162,14 +171,15 @@ export const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ onNavigate
 
             <div className="flex items-center justify-between">
               <div className="text-xs" style={{ color: textSecondary }}>
-                ⏱️ {item.readTime} mins
+                {isRead ? 'Read' : 'Unread'} • ⏱️ {item.readTime} mins
               </div>
-              <Button variant="ghost" size="sm">
-                Read Article →
+              <Button variant="ghost" size="sm" onClick={() => handleReadArticle(item.id)}>
+                {isRead ? 'Read Again →' : 'Read Article →'}
               </Button>
             </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       {/* Empty State */}

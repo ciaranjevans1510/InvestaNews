@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { HelpCircle, X, Compass, Trophy } from 'lucide-react';
+import { ChevronRight, HelpCircle, X, Compass, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
+import { InvestaNewsLogo } from '../ui/InvestaNewsLogo';
 import { COLORS } from '../../utils/colors';
 import { MOCK_STORIES } from '../../utils/mockData';
 import { getStockLogoFallback, getStockLogoUrl } from '../../utils/stockLogos';
@@ -13,6 +14,10 @@ import type { Stock } from '../../types';
 interface DashboardScreenProps {
   onNavigate?: (screen: string) => void;
   onSelectStock?: (stock: Stock, adjacentStocks?: Stock[]) => void;
+  onResetExperience?: () => void;
+  onOpenBeta?: () => void;
+  startTooltipTour?: boolean;
+  onTooltipTourComplete?: () => void;
 }
 
 interface HomeStory {
@@ -26,6 +31,44 @@ interface StoriesResponse {
   stories?: HomeStory[];
   recommendedStories?: HomeStory[];
 }
+
+const TOOLTIP_STEPS = [
+  {
+    title: 'Home Button',
+    message: 'Tap the InvestaNews logo to restart the intro flow at any time.',
+    focusClass: 'top-4 left-4 w-[296px] h-[64px]',
+    bubbleClass: 'top-[82px] left-4 w-[250px]',
+    tailClass: '-top-2 left-6',
+  },
+  {
+    title: 'Beta Info',
+    message: 'Open the Beta page here for updates, rewards, and install help.',
+    focusClass: 'top-4 right-4 w-[130px] h-[64px]',
+    bubbleClass: 'top-[82px] right-4 w-[240px]',
+    tailClass: '-top-2 right-6',
+  },
+  {
+    title: 'All Stories',
+    message: 'This tab shows your main story feed. Swipe the cards to browse.',
+    focusClass: 'top-[222px] left-4 w-[128px] h-[48px]',
+    bubbleClass: 'top-[276px] left-4 w-[245px]',
+    tailClass: '-top-2 left-6',
+  },
+  {
+    title: 'Recommended',
+    message: 'This tab shows stories tailored to your favourites and preferences.',
+    focusClass: 'top-[222px] left-[136px] w-[152px] h-[48px]',
+    bubbleClass: 'top-[276px] left-[136px] w-[250px]',
+    tailClass: '-top-2 left-6',
+  },
+  {
+    title: 'Quick Explore',
+    message: 'Use these action buttons lower down to jump into Explore or Search quickly.',
+    focusClass: 'bottom-[54px] left-4 right-4 h-[56px]',
+    bubbleClass: 'bottom-[118px] left-4 w-[290px]',
+    tailClass: '-bottom-2 left-8',
+  },
+] as const;
 
 const MAX_HOME_STORIES = 8;
 const DAILY_STORY_TITLE = 'today in 60 seconds';
@@ -58,13 +101,22 @@ const mergeStories = (dbStories: HomeStory[]): HomeStory[] => {
   return [...dailyStories, ...otherStories];
 };
 
-export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate, onSelectStock }) => {
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+  onNavigate,
+  onSelectStock,
+  onResetExperience,
+  onOpenBeta,
+  startTooltipTour,
+  onTooltipTourComplete,
+}) => {
   const router = useRouter();
   const { theme } = useTheme();
   const { favourites, removeFavourite, favouriteTileCount, tutorialCompleted } = useAppContext();
   const [stories, setStories] = useState<HomeStory[]>(fallbackHomeStories);
   const [recommendedStories, setRecommendedStories] = useState<HomeStory[]>([]);
   const [activeTab, setActiveTab] = useState<'recommended' | 'all'>('all');
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
   const isDark = theme === 'dark';
   const textColor = isDark ? COLORS.dark.text : COLORS.light.text;
@@ -92,6 +144,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate, on
     }
     onNavigate?.('search');
   };
+
+  useEffect(() => {
+    if (!startTooltipTour) return;
+    setTourOpen(true);
+    setTourStep(0);
+  }, [startTooltipTour]);
 
   useEffect(() => {
     let isMounted = true;
@@ -133,19 +191,73 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate, on
     router.push(`/stories/${slug}`);
   };
 
+  const closeTour = () => {
+    setTourOpen(false);
+    setTourStep(0);
+    onTooltipTourComplete?.();
+  };
+
+  const handleNextTourStep = () => {
+    if (tourStep >= TOOLTIP_STEPS.length - 1) {
+      closeTour();
+      return;
+    }
+    setTourStep((prev) => prev + 1);
+  };
+
+  const currentTooltip = TOOLTIP_STEPS[tourStep];
+
   return (
     <div
-      className="pb-10 px-4"
+      className="relative pb-10 px-4"
       style={{
-        backgroundColor: bgColor,
+        background: isDark
+          ? bgColor
+          : 'radial-gradient(circle at 14% 12%, rgba(31, 111, 235, 0.14) 0%, rgba(31, 111, 235, 0) 34%), radial-gradient(circle at 86% 88%, rgba(245, 166, 126, 0.2) 0%, rgba(245, 166, 126, 0) 36%), linear-gradient(180deg, #f8fbff 0%, #eaf2fd 100%)',
         minHeight: '100vh',
       }}
     >
       {/* Header */}
       <div className="pt-5 pb-6 flex justify-between items-start">
         <div>
-          <div className="text-4xl font-bold leading-tight" style={{ color: textColor }}>
-            InvestaNews
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onResetExperience}
+              className="text-left px-3 py-2 rounded-xl border opacity-90 hover:opacity-70 active:opacity-55 transition-opacity cursor-pointer"
+              style={{
+                backgroundColor: isDark ? '#1b2235' : '#f6f9ff',
+                borderColor: isDark ? '#40508f' : '#c8d8ee',
+              }}
+              aria-label="Reset and start intro flow"
+            >
+              <InvestaNewsLogo
+                textColor={isDark ? '#f8fbff' : '#17325d'}
+                newsOpacity={0.72}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenBeta}
+              className="px-3 py-1 rounded-xl text-3xl font-bold leading-tight flex items-center justify-between gap-2 cursor-pointer"
+              style={{
+                backgroundColor: isDark ? '#2d3361' : '#e8efff',
+                color: isDark ? '#dbe4ff' : '#3558a8',
+                border: `1px solid ${isDark ? '#4f5ecf' : '#bfd0ff'}`,
+              }}
+              aria-label="Open beta page"
+            >
+              <span>BETA</span>
+              <span
+                className="h-8 w-8 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: isDark ? '#4f5ecf' : '#cddcff',
+                  color: isDark ? '#eef3ff' : '#25478f',
+                }}
+              >
+                <ChevronRight size={18} strokeWidth={2.5} />
+              </span>
+            </button>
           </div>
           <div className="text-sm mt-1" style={{ color: textSecondary }}>
             Understand the market.
@@ -367,6 +479,63 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate, on
           Major business and market updates
         </p>
       </div>
+
+      {tourOpen && (
+        <div className="absolute inset-0 z-40 pointer-events-none">
+          <div
+            className={`absolute rounded-2xl border-2 ${currentTooltip.focusClass}`}
+            style={{
+              borderColor: isDark ? '#7c8cff' : '#5f76ff',
+              boxShadow: isDark
+                ? '0 0 0 9999px rgba(10, 18, 39, 0.55)'
+                : '0 0 0 9999px rgba(9, 24, 58, 0.38)',
+            }}
+          />
+          <div
+            className={`absolute rounded-2xl border p-3 shadow-xl pointer-events-auto ${currentTooltip.bubbleClass}`}
+            style={{
+              backgroundColor: isDark ? '#1a2342' : '#f6f9ff',
+              borderColor: isDark ? '#4458b3' : '#b9ccff',
+            }}
+          >
+            <span
+              className={`absolute h-4 w-4 rotate-45 border ${currentTooltip.tailClass}`}
+              style={{
+                backgroundColor: isDark ? '#1a2342' : '#f6f9ff',
+                borderColor: isDark ? '#4458b3' : '#b9ccff',
+              }}
+            />
+            <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: isDark ? '#9fb2ff' : '#4762bf' }}>
+              Tooltip {tourStep + 1} of {TOOLTIP_STEPS.length}
+            </div>
+            <div className="text-sm font-semibold mt-1" style={{ color: textColor }}>
+              {currentTooltip.title}
+            </div>
+            <p className="text-xs mt-1.5" style={{ color: textSecondary }}>
+              {currentTooltip.message}
+            </p>
+            <div className="mt-3 flex items-center justify-between">
+              <button
+                onClick={closeTour}
+                className="text-xs font-medium"
+                style={{ color: isDark ? '#c8d6ff' : '#3c5ba7' }}
+              >
+                Skip tour
+              </button>
+              <button
+                onClick={handleNextTourStep}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold"
+                style={{
+                  backgroundColor: COLORS.primary,
+                  color: 'white',
+                }}
+              >
+                {tourStep === TOOLTIP_STEPS.length - 1 ? 'Finish' : 'Next'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick navigation */}
       <div className="flex gap-3 mb-6">

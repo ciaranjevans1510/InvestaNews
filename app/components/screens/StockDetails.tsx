@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Building2, ChevronLeft, ChevronRight, CircleDollarSign, Heart, Info, X } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
-import { createSupabaseClient } from '../../../lib/supabase/server';
+import { getSupabaseClient } from '../../../lib/supabase/client';
 import type { Stock } from '../../types';
 
 interface StockDetailsScreenProps {
@@ -37,7 +37,7 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
     let isMounted = true;
 
     const loadStockDetails = async () => {
-      const supabase = createSupabaseClient();
+      const supabase = getSupabaseClient();
       try {
         const { data } = await supabase
           .from('stocks')
@@ -68,7 +68,7 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
       const activeSector = (dbStock?.sector || stock.sector || '').toString();
       if (!activeSector) return;
 
-      const supabase = createSupabaseClient();
+      const supabase = getSupabaseClient();
       try {
         const { data, error } = await supabase
           .from('stocks')

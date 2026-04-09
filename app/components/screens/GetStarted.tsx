@@ -3,27 +3,34 @@
 import React from 'react';
 import { Sparkles, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { InvestaNewsLogo } from '../ui/InvestaNewsLogo';
 import { COLORS } from '../../utils/colors';
 
 interface GetStartedScreenProps {
   onExplore?: () => void;
-  onQuiz?: () => void;
-  onSkip?: () => void;
+  onGuidedTour?: () => void;
 }
 
 export const GetStartedScreen: React.FC<GetStartedScreenProps> = ({ 
   onExplore, 
-  onQuiz, 
-  onSkip 
+  onGuidedTour
 }) => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const pageBackground = isDark
+    ? 'linear-gradient(135deg, #1a2847 0%, #2a3f6b 50%, #1a2847 100%)'
+    : 'radial-gradient(circle at 14% 12%, rgba(31, 111, 235, 0.14) 0%, rgba(31, 111, 235, 0) 34%), radial-gradient(circle at 86% 88%, rgba(245, 166, 126, 0.2) 0%, rgba(245, 166, 126, 0) 36%), linear-gradient(180deg, #f8fbff 0%, #eaf2fd 100%)';
+  const titleColor = isDark ? '#ffffff' : COLORS.light.text;
+  const subtitleColor = isDark ? '#a0aec0' : COLORS.light.textSecondary;
+  const cardBackground = isDark ? 'rgba(30, 40, 70, 0.5)' : '#f3f8ff';
+  const cardTitleColor = isDark ? '#ffffff' : COLORS.light.text;
+  const cardSubtitleColor = isDark ? '#8fa3c0' : '#5a769f';
 
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen p-6"
       style={{
-        background: 'linear-gradient(135deg, #1a2847 0%, #2a3f6b 50%, #1a2847 100%)',
+        background: pageBackground,
       }}
     >
       {/* Icon Circle */}
@@ -40,24 +47,24 @@ export const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
       </div>
 
       {/* Title */}
-      <h1 className="text-4xl font-bold text-white text-center mb-2">
-        InvestaNews
-      </h1>
+      <div className="mb-2 flex justify-center">
+        <InvestaNewsLogo textColor={titleColor} newsOpacity={0.72} />
+      </div>
 
       {/* Tagline */}
-      <p className="text-lg text-center mb-12" style={{ color: '#a0aec0' }}>
-        Your playful guide to stock insights
+      <p className="text-lg text-center mb-12" style={{ color: subtitleColor }}>
+        Welcome! Select one of the options below to get started.
       </p>
 
       {/* Action Cards */}
       <div className="w-full max-w-md space-y-4 mb-8">
-        {/* Explore First Card */}
+        {/* Explore Solo Card */}
         <button
           onClick={onExplore}
           className="w-full p-6 rounded-2xl border-2 flex items-start gap-4 transition-all hover:opacity-90 text-left"
           style={{
             borderColor: COLORS.primary,
-            backgroundColor: 'rgba(30, 40, 70, 0.5)',
+            backgroundColor: cardBackground,
           }}
         >
           <div
@@ -69,22 +76,22 @@ export const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
             <Sparkles size={24} color="white" />
           </div>
           <div>
-            <div className="text-lg font-semibold text-white">
-              Explore First
+            <div className="text-lg font-semibold" style={{ color: cardTitleColor }}>
+              Explore by Yourself
             </div>
-            <div style={{ color: '#8fa3c0' }}>
-              Browse stocks and news
+            <div style={{ color: cardSubtitleColor }}>
+              Jump straight in and browse at your own pace
             </div>
           </div>
         </button>
 
-        {/* Take Quiz Card */}
+        {/* Guided Tooltip Tour Card */}
         <button
-          onClick={onQuiz}
+          onClick={onGuidedTour}
           className="w-full p-6 rounded-2xl border-2 flex items-start gap-4 transition-all hover:opacity-90 text-left"
           style={{
             borderColor: COLORS.primary,
-            backgroundColor: 'rgba(30, 40, 70, 0.5)',
+            backgroundColor: cardBackground,
           }}
         >
           <div
@@ -96,26 +103,15 @@ export const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
             <TrendingUp size={24} color="white" />
           </div>
           <div>
-            <div className="text-lg font-semibold text-white">
-              Take Quiz
+            <div className="text-lg font-semibold" style={{ color: cardTitleColor }}>
+              Continue with Tooltips
             </div>
-            <div style={{ color: '#8fa3c0' }}>
-              Get personalized recommendations
+            <div style={{ color: cardSubtitleColor }}>
+              Get a quick guided walkthrough of the home screen
             </div>
           </div>
         </button>
       </div>
-
-      {/* Skip Button */}
-      {onSkip && (
-        <button
-          onClick={onSkip}
-          className="text-sm font-medium transition-opacity hover:opacity-75"
-          style={{ color: '#8fa3c0' }}
-        >
-          Skip for now
-        </button>
-      )}
     </div>
   );
 };

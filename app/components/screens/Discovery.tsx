@@ -17,7 +17,7 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { COLORS } from '../../utils/colors';
 import { MOCK_STOCKS } from '../../utils/mockData';
-import { createSupabaseClient } from '../../../lib/supabase/server';
+import { getSupabaseClient } from '../../../lib/supabase/client';
 
 interface DiscoveryScreenProps {
   onNavigate?: (screen: string) => void;
@@ -91,7 +91,7 @@ export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, on
     let isMounted = true;
 
     const loadCategories = async () => {
-      const supabase = createSupabaseClient();
+      const supabase = getSupabaseClient();
 
       try {
         const { data: stockRows, error: stockError } = await supabase

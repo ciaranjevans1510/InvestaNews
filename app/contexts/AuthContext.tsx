@@ -52,10 +52,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: { data: { display_name: displayName } },
     });
     if (error) return { error: error.message };
-    // Supabase returns a session immediately if email confirmation is disabled,
-    // or null + an unconfirmed user if confirmation is required.
-    const needsConfirmation = !data.session && !!data.user;
-    return { error: null, confirmEmail: needsConfirmation };
+
+    // If signUp did not return a session, attempt an immediate sign-in.
+    // This makes account creation feel seamless when email confirmation is off.
+    if (!data.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        // Most commonly means confirmation is required before first sign-in.
+        return { error: null, confirmEmail: true };
+      }
+    }
+
+    return { error: null, confirmEmail: false };
   };
 
   const signOut = async () => {

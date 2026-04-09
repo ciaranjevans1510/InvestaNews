@@ -6,7 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
 import { COLORS } from '../../utils/colors';
 import { MOCK_STOCKS } from '../../utils/mockData';
-import { createSupabaseClient } from '../../../lib/supabase/server';
+import { getSupabaseClient } from '../../../lib/supabase/client';
 import type { Stock } from '../../types';
 
 interface SearchScreenProps {
@@ -66,7 +66,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const supabase = createSupabaseClient();
+        const supabase = getSupabaseClient();
         const q = searchQuery.trim();
         const cols = 'id, ticker, company_name, sector';
         const { data, error } = await supabase

@@ -16,7 +16,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogout, onBack }) => {
   const { theme, toggleTheme } = useTheme();
-  const { user, userPoints } = useAppContext();
+  const { user, userPoints, favourites, articlesReadCount } = useAppContext();
   const { authUser } = useAuth();
   const isDark = theme === 'dark';
   const textColor = isDark ? COLORS.dark.text : COLORS.light.text;
@@ -109,7 +109,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogo
           <div className="grid grid-cols-3 gap-3">
             <Card className="p-4 text-center">
               <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>
-                {user?.stocksTracked ?? 0}
+                {favourites.length}
               </div>
               <div className="text-xs mt-2" style={{ color: textSecondary }}>
                 Stocks
@@ -117,7 +117,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogo
             </Card>
             <Card className="p-4 text-center">
               <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>
-                {user?.articlesRead ?? 0}
+                {articlesReadCount}
               </div>
               <div className="text-xs mt-2" style={{ color: textSecondary }}>
                 Articles

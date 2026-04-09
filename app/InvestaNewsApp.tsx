@@ -22,11 +22,13 @@ import { StockDetailsScreen } from './components/screens/StockDetails';
 import { MoreTilesScreen } from './components/screens/MoreTiles';
 import { SignInScreen } from './components/screens/SignIn';
 import { SignUpScreen } from './components/screens/SignUp';
+import { BetaScreen } from './components/screens/Beta';
+import { InstallTutorialScreen } from './components/screens/InstallTutorial';
 import { COLORS } from './utils/colors';
 import type { Stock } from './types';
 
 type NavigationTab = 'home' | 'discover' | 'search' | 'rewards' | 'profile';
-type Screen = 'welcome' | 'sign-in' | 'sign-up' | 'get-started' | 'onboarding' | 'quiz' | 'stories' | 'learning' | 'category-stocks' | 'stock-details' | 'more-tiles' | NavigationTab;
+type Screen = 'welcome' | 'sign-in' | 'sign-up' | 'get-started' | 'onboarding' | 'quiz' | 'stories' | 'learning' | 'category-stocks' | 'stock-details' | 'more-tiles' | 'beta' | 'install-tutorial' | NavigationTab;
 
 const InvestaNewsAppContent: React.FC = () => {
   const { session, authLoading, signOut } = useAuth();
@@ -36,6 +38,7 @@ const InvestaNewsAppContent: React.FC = () => {
   const [selectedSector, setSelectedSector] = useState('Technology');
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [stockNavigationList, setStockNavigationList] = useState<Stock[]>([]);
+  const [startHomeTour, setStartHomeTour] = useState(false);
   const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
   const [mounted, setMounted] = useState(false);
   // Track previously seen user ID so token refreshes don't reset navigation
@@ -55,10 +58,10 @@ const InvestaNewsAppContent: React.FC = () => {
         if (welcomeCompleted !== 'true') {
           setCurrentScreen('welcome');
         } else {
-          setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'onboarding');
+          setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
         }
       } else {
-        setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'onboarding');
+        setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
       }
       setMounted(true);
       return;
@@ -71,10 +74,10 @@ const InvestaNewsAppContent: React.FC = () => {
     // Real auth transition (sign-in or sign-out)
     if (!currentUserId) {
       const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
-      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'onboarding');
+      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
     } else {
       const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
-      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'onboarding');
+      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
     }
   }, [authLoading, session]);
 
@@ -140,6 +143,26 @@ const InvestaNewsAppContent: React.FC = () => {
     localStorage.setItem('investanews-tutorial-completed', 'true');
   };
 
+  const handleExploreSolo = () => {
+    setStartHomeTour(false);
+    setScreenHistory([]);
+    setCurrentScreen('home');
+    setCurrentTab('home');
+    localStorage.setItem('investanews-tutorial-completed', 'true');
+  };
+
+  const handleStartGuidedTour = () => {
+    setStartHomeTour(true);
+    setScreenHistory([]);
+    setCurrentScreen('home');
+    setCurrentTab('home');
+  };
+
+  const handleHomeTourComplete = () => {
+    setStartHomeTour(false);
+    localStorage.setItem('investanews-tutorial-completed', 'true');
+  };
+
   const handleLogout = async () => {
     setScreenHistory([]);
     await signOut();
@@ -168,6 +191,14 @@ const InvestaNewsAppContent: React.FC = () => {
     setSelectedStock(stock);
   };
 
+  const handleResetExperience = () => {
+    localStorage.removeItem('investanews-welcome-completed');
+    localStorage.removeItem('investanews-tutorial-completed');
+    setScreenHistory([]);
+    setCurrentTab('home');
+    setCurrentScreen('welcome');
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
@@ -194,9 +225,8 @@ const InvestaNewsAppContent: React.FC = () => {
         case 'get-started':
           return (
             <GetStartedScreen
-              onExplore={() => navigate('discover')}
-              onQuiz={() => navigate('quiz')}
-              onSkip={() => navigate('onboarding')}
+              onExplore={handleExploreSolo}
+              onGuidedTour={handleStartGuidedTour}
             />
           );
       case 'onboarding':
@@ -213,7 +243,7 @@ const InvestaNewsAppContent: React.FC = () => {
       case 'learning':
         return <LearningHubScreen onNavigate={navigate} onBack={() => goBack('profile')} />;
       case 'home':
-        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} />;
+        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} />;
       case 'discover':
         return (
           <DiscoveryScreen
@@ -251,8 +281,12 @@ const InvestaNewsAppContent: React.FC = () => {
         return <RewardsScreen onNavigate={navigate} onBack={() => goBack('home')} />;
       case 'profile':
         return <ProfileScreen onNavigate={navigate} onLogout={handleLogout} onBack={() => goBack('home')} />;
+      case 'beta':
+        return <BetaScreen onBack={() => goBack('home')} onToggleTheme={toggleTheme} onOpenInstallTutorial={() => openScreen('install-tutorial')} />;
+      case 'install-tutorial':
+        return <InstallTutorialScreen onBack={() => goBack('beta')} onToggleTheme={toggleTheme} />;
       default:
-        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} />;
+        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} />;
     }
   };
 
@@ -265,28 +299,32 @@ const InvestaNewsAppContent: React.FC = () => {
       }}
     >
       <div className="mx-auto w-full max-w-[460px] min-h-screen relative overflow-hidden border border-[#c6d7ee] shadow-[0_24px_70px_rgba(17,58,110,0.18)] md:max-w-none md:shadow-none">
-        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-          <button
-            onClick={toggleTheme}
-            className="p-3 rounded-full transition-all"
-            style={{ backgroundColor: COLORS.primary, color: 'white' }}
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-          </button>
-          <button
-            onClick={() => navigate('profile')}
-            className="p-3 rounded-full transition-all"
-            style={{
-              backgroundColor: theme === 'dark' ? COLORS.dark.surface : COLORS.light.surface,
-              color: theme === 'dark' ? COLORS.dark.text : COLORS.light.text,
-              border: `1px solid ${theme === 'dark' ? COLORS.dark.border : COLORS.light.border}`,
-            }}
-            aria-label="Open profile"
-          >
-            <User size={22} />
-          </button>
-        </div>
+        {currentScreen !== 'beta' && currentScreen !== 'install-tutorial' && (
+          <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-3 rounded-full transition-all"
+              style={{ backgroundColor: COLORS.primary, color: 'white' }}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
+            </button>
+            <button
+              onClick={() => navigate('profile')}
+              className="p-3 rounded-full transition-all"
+              style={{
+                backgroundColor: theme === 'dark' ? COLORS.dark.surface : COLORS.light.surface,
+                color: theme === 'dark' ? COLORS.dark.text : COLORS.light.text,
+                border: `1px solid ${theme === 'dark' ? COLORS.dark.border : COLORS.light.border}`,
+              }}
+              aria-label="Open profile"
+            >
+              <User size={22} />
+            </button>
+          </div>
+          </div>
+        )}
         {renderScreen()}
       </div>
     </div>
