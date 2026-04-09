@@ -73,9 +73,6 @@ export const Toast: React.FC<ToastProps> = ({ message, type = 'info', duration =
     return () => clearTimeout(timer);
   }, [duration, onClose]);
 
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
   const typeStyles = {
     success: {
       icon: CheckCircle,
@@ -189,7 +186,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ progress, total, showL
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const percentage = (progress / total) * 100;
-  const borderColor = isDark ? COLORS.dark.border : COLORS.light.border;
 
   return (
     <div>

@@ -64,7 +64,7 @@ export const Button: React.FC<ButtonProps> = ({
     lg: 'px-6 py-3 text-lg',
   };
 
-  let buttonStyle: React.CSSProperties = {
+  const buttonStyle: React.CSSProperties = {
     backgroundColor: COLORS.primary,
     color: '#ffffff',
   };

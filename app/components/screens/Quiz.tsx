@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { Card, Button, Badge } from '../ui/Basic';
+import { Card, Button } from '../ui/Basic';
 import { ProgressBar } from '../ui/Navigation';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
@@ -109,7 +109,7 @@ export const QuizScreen: React.FC<QuizScreenProps> = ({ onComplete, onBack }) =>
           {score}/{QUIZ_QUESTIONS.length}
         </div>
         <p className="text-center mb-6 max-w-sm" style={{ color: textSecondary }}>
-          Great job! You've earned 50 bonus points for completing the quiz.
+          Great job! You&apos;ve earned 50 bonus points for completing the quiz.
         </p>
         <Button
           onClick={() => {

@@ -69,28 +69,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Load from localStorage
-    const savedFavourites = localStorage.getItem('investanews-favourites');
-    const savedTasks = localStorage.getItem('investanews-tasks');
-    const savedPoints = localStorage.getItem('investanews-points');
-    const savedReadArticleIds = localStorage.getItem('investanews-read-articles');
-    const savedTileCount = localStorage.getItem('investanews-favourite-tiles');
-    const savedReferralInvites = localStorage.getItem('investanews-referral-invites');
-    const savedTutorial = localStorage.getItem('investanews-tutorial-completed');
-    const savedUser = localStorage.getItem('investanews-user');
+    try {
+      // Load from localStorage
+      const savedFavourites = localStorage.getItem('investanews-favourites');
+      const savedTasks = localStorage.getItem('investanews-tasks');
+      const savedPoints = localStorage.getItem('investanews-points');
+      const savedReadArticleIds = localStorage.getItem('investanews-read-articles');
+      const savedTileCount = localStorage.getItem('investanews-favourite-tiles');
+      const savedReferralInvites = localStorage.getItem('investanews-referral-invites');
+      const savedTutorial = localStorage.getItem('investanews-tutorial-completed');
+      const savedUser = localStorage.getItem('investanews-user');
 
-    if (savedFavourites) setFavourites(JSON.parse(savedFavourites));
-    if (savedTasks) setDailyTasks(JSON.parse(savedTasks));
-    if (savedPoints) setUserPoints(parseInt(savedPoints, 10));
-    if (savedReadArticleIds) setReadArticleIds(JSON.parse(savedReadArticleIds));
-    if (savedTileCount) setFavouriteTileCount(Math.max(3, parseInt(savedTileCount, 10) || 3));
-    if (savedReferralInvites) setReferralInvites(parseInt(savedReferralInvites, 10) || 0);
-    if (savedTutorial) setTutorialCompleted(JSON.parse(savedTutorial));
-    if (savedUser) setUser(JSON.parse(savedUser));
+      if (savedFavourites) setFavourites(JSON.parse(savedFavourites));
+      if (savedTasks) setDailyTasks(JSON.parse(savedTasks));
+      if (savedPoints) setUserPoints(parseInt(savedPoints, 10));
+      if (savedReadArticleIds) setReadArticleIds(JSON.parse(savedReadArticleIds));
+      if (savedTileCount) setFavouriteTileCount(Math.max(3, parseInt(savedTileCount, 10) || 3));
+      if (savedReferralInvites) setReferralInvites(parseInt(savedReferralInvites, 10) || 0);
+      if (savedTutorial) setTutorialCompleted(JSON.parse(savedTutorial));
+      if (savedUser) setUser(JSON.parse(savedUser));
 
-    if (!savedTasks) setDailyTasks(MOCK_TASKS);
-
-    setMounted(true);
+      if (!savedTasks) setDailyTasks(MOCK_TASKS);
+    } catch {
+      // If any stored value is corrupted, start fresh with defaults
+      setDailyTasks(MOCK_TASKS);
+    } finally {
+      setMounted(true);
+    }
   }, []);
 
   useEffect(() => {

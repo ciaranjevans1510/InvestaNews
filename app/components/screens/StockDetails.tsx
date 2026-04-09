@@ -14,11 +14,34 @@ interface StockDetailsScreenProps {
   onSelectStock?: (stock: Stock) => void;
 }
 
+interface DbStockRow {
+  id: string;
+  ticker: string;
+  company_name: string;
+  sector: string;
+  industry?: string | null;
+  sub_industry?: string | null;
+  market_cap?: string | number | null;
+  market_capitalization?: string | number | null;
+  mkt_cap?: string | number | null;
+  market_cap_category?: string | null;
+  cap_category?: string | null;
+  company_description?: string | null;
+  business_summary?: string | null;
+  summary?: string | null;
+  info_url?: string | null;
+  description?: string | null;
+  website_url?: string | null;
+  price?: number | null;
+  change?: number | null;
+  percent_change?: number | null;
+}
+
 export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, stockList, onBack, onSelectStock }) => {
   const { theme } = useTheme();
   const { addFavourite, isFavourite, canAddFavourite } = useAppContext();
   const isDark = theme === 'dark';
-  const [dbStock, setDbStock] = useState<any | null>(null);
+  const [dbStock, setDbStock] = useState<DbStockRow | null>(null);
   const [relatedStocks, setRelatedStocks] = useState<Stock[]>([]);
   const textSecondary = isDark ? '#cbd5e1' : '#5f6882';
   const cardGradient = isDark
@@ -77,7 +100,7 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
           .limit(20);
 
         if (!error && data && data.length > 0 && isMounted) {
-          const mapped: Stock[] = data.map((row: any) => ({
+          const mapped: Stock[] = (data as DbStockRow[]).map((row) => ({
             id: String(row.id ?? row.ticker),
             symbol: String(row.ticker ?? '').toUpperCase(),
             company: String(row.company_name ?? '').trim() || 'Unknown company',

@@ -8,6 +8,11 @@ interface StoryPreview {
   subtitle?: string;
 }
 
+interface StoryStockRow {
+  story_id: string;
+  stocks: { ticker: string } | { ticker: string }[] | null;
+}
+
 const normalizeTickers = (raw: string | null): string[] => {
   if (!raw) return [];
 
@@ -32,7 +37,7 @@ export async function GET(request: Request) {
       .limit(8);
 
     if (error) {
-      return NextResponse.json({ stories: [], recommendedStories: [] }, { status: 200 });
+      return NextResponse.json({ stories: [], recommendedStories: [] }, { status: 500 });
     }
 
     const stories = (data ?? []) as StoryPreview[];
@@ -54,13 +59,14 @@ export async function GET(request: Request) {
 
     const recommendedStoryIds = new Set<string>();
 
-    for (const relation of storyStocks ?? []) {
-      const ticker = Array.isArray((relation as any).stocks)
-        ? (relation as any).stocks[0]?.ticker
-        : (relation as any).stocks?.ticker;
+    for (const relation of (storyStocks ?? []) as StoryStockRow[]) {
+      const stockData = relation.stocks;
+      const ticker = Array.isArray(stockData)
+        ? stockData[0]?.ticker
+        : stockData?.ticker;
 
       if (ticker && preferredTickers.includes(String(ticker).toUpperCase())) {
-        recommendedStoryIds.add(String((relation as any).story_id));
+        recommendedStoryIds.add(relation.story_id);
       }
     }
 
@@ -68,6 +74,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ stories, recommendedStories }, { status: 200 });
   } catch {
-    return NextResponse.json({ stories: [], recommendedStories: [] }, { status: 200 });
+    return NextResponse.json({ stories: [], recommendedStories: [] }, { status: 500 });
   }
 }

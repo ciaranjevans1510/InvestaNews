@@ -15,6 +15,13 @@ interface SearchScreenProps {
   onSelectStock?: (stock: Stock, adjacentStocks?: Stock[]) => void;
 }
 
+interface StockSearchRow {
+  id: string;
+  ticker: string;
+  company_name: string;
+  sector: string;
+}
+
 export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, onSelectStock }) => {
   const { theme } = useTheme();
   const { addFavourite, isFavourite, canAddFavourite } = useAppContext();
@@ -87,7 +94,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
 
         if (data && data.length > 0) {
           setDbResults(
-            data.map((row: any) => ({
+            (data as StockSearchRow[]).map((row) => ({
               id: String(row.id ?? row.ticker),
               symbol: String(row.ticker ?? '').toUpperCase(),
               company: String(row.company_name ?? '').trim() || 'Unknown company',

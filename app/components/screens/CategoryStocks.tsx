@@ -25,6 +25,16 @@ interface CategoryStocksScreenProps {
   onSelectStock?: (stock: Stock, adjacentStocks?: Stock[]) => void;
 }
 
+interface StockQueryRow {
+  id: string;
+  ticker: string;
+  company_name: string;
+  sector: string;
+  price?: number | null;
+  change?: number | null;
+  percent_change?: number | null;
+}
+
 const sectorSubtitle = (sector: string) => {
   const key = sector.toLowerCase();
   if (key.includes('sport')) return 'Professional teams and sports brands';
@@ -75,7 +85,7 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
           .limit(50);
 
         if (!error && data && data.length > 0 && isMounted) {
-          const rows = data.map((row: any) => ({
+          const rows = (data as StockQueryRow[]).map((row) => ({
             id: String(row.id ?? row.ticker),
             ticker: String(row.ticker ?? '').toUpperCase(),
             companyName: String(row.company_name ?? '').trim() || 'Unknown company',

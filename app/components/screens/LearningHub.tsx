@@ -144,7 +144,6 @@ export const LearningHubScreen: React.FC<LearningHubScreenProps> = ({ onNavigate
                   item.category === 'Beginner' ? '#10b981' :
                   item.category === 'Intermediate' ? COLORS.primary :
                   '#f59e0b'
-                // eslint-disable-next-line react/jsx-closing-bracket
                 } size="sm">
                   {item.category}
                 </Badge>

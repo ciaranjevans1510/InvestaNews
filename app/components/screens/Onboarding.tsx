@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card, Button } from '../ui/Basic';
+import { Button } from '../ui/Basic';
 import { ProgressBar } from '../ui/Navigation';
 import { useTheme } from '../../contexts/ThemeContext';
 import { COLORS } from '../../utils/colors';

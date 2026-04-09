@@ -93,12 +93,12 @@ export const BetaScreen: React.FC<BetaScreenProps> = ({ onBack, onToggleTheme, o
           🎁 Early Supporter Reward
         </h3>
         <p className="text-lg leading-8 mt-3" style={{ color: textColor }}>
-          As a thank you for being part of the beta, you'll receive lifetime access to InvestaNews
+          As a thank you for being part of the beta, you&apos;ll receive lifetime access to InvestaNews
           Premium when it launches.
         </p>
         <p className="text-lg leading-8 mt-3" style={{ color: textSecondary }}>
           Right now, Premium mainly includes unlimited access to tiles, with more features and
-          tools planned as the product grows. As an early supporter, you'll automatically get access
+          tools planned as the product grows. As an early supporter, you&apos;ll automatically get access
           to everything that becomes part of Premium in the future.
         </p>
       </div>
@@ -119,7 +119,7 @@ export const BetaScreen: React.FC<BetaScreenProps> = ({ onBack, onToggleTheme, o
           comes next.
         </p>
         <p className="text-lg leading-8 mt-3" style={{ color: textColor }}>
-          We'd love to hear:
+          We&apos;d love to hear:
         </p>
         <ul className="mt-2 space-y-1.5 pl-5 text-lg" style={{ color: textSecondary }}>
           <li>what helps you better understand the market</li>

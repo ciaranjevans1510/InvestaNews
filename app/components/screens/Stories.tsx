@@ -20,7 +20,7 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({ onNavigate, onBack
   const bgColor = isDark ? COLORS.dark.bg : COLORS.light.bg;
   const textSecondary = isDark ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
 
-  const [currentStory, setCurrentStory] = useState(0);
+  const [currentStory] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
 

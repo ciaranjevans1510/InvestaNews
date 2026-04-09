@@ -31,6 +31,10 @@ interface DiscoverCategory {
   stockCount: number;
 }
 
+interface SectorRow {
+  sector: string | null;
+}
+
 const FALLBACK_CATEGORIES: DiscoverCategory[] = [
   {
     name: 'Sports & Teams',
@@ -104,7 +108,7 @@ export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, on
         }
 
         const grouped = new Map<string, number>();
-        stockRows.forEach((row: any) => {
+        stockRows.forEach((row: SectorRow) => {
           const sectorName = (row.sector || '').toString().trim();
           if (!sectorName) return;
           grouped.set(sectorName, (grouped.get(sectorName) || 0) + 1);

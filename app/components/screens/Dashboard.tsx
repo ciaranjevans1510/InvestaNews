@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight, HelpCircle, X, Compass, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
 import { InvestaNewsLogo } from '../ui/InvestaNewsLogo';
@@ -147,6 +148,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   useEffect(() => {
     if (!startTooltipTour) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTourOpen(true);
     setTourStep(0);
   }, [startTooltipTour]);
@@ -378,7 +380,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   Find your perfect stocks 🎯
                 </p>
                 <p className="text-sm mt-1" style={{ color: '#32517d' }}>
-                  Take the quiz and we'll match stories to what you actually care about.
+                  Take the quiz and we&apos;ll match stories to what you actually care about.
                 </p>
                 <button
                   onClick={() => onNavigate?.('quiz')}
@@ -388,7 +390,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     color: 'white',
                   }}
                 >
-                  Let's go →
+                  Let&apos;s go →
                 </button>
               </div>
             </>
@@ -421,7 +423,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   Find your perfect stocks 🎯
                 </p>
                 <p className="text-sm mt-1" style={{ color: '#32517d' }}>
-                  Take the quiz and we'll match stories to what you actually care about.
+                  Take the quiz and we&apos;ll match stories to what you actually care about.
                 </p>
                 <button
                   onClick={() => onNavigate?.('quiz')}
@@ -431,7 +433,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     color: 'white',
                   }}
                 >
-                  Let's go →
+                  Let&apos;s go →
                 </button>
               </div>
             </div>
@@ -612,10 +614,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                         }}
                       >
                         {showLogo ? (
-                          <img
-                            src={logoUrl ?? undefined}
+                          <Image
+                            src={logoUrl as string}
                             alt={`${stock.company} logo`}
-                            className="w-7 h-7 object-contain"
+                            width={28}
+                            height={28}
+                            className="object-contain"
                             style={{ filter: isDark ? 'brightness(1.03) contrast(1.08)' : 'saturate(0.88) contrast(0.98)' }}
                             onError={() => {
                               setFailedLogos((prev) => ({ ...prev, [stock.symbol]: true }));

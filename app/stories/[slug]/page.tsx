@@ -52,7 +52,7 @@ export default async function StoryPage({
     .eq('story_id', story.id)
     .order('slide_order', { ascending: true })
 
-  const { data: storyStocks, error: storyStocksError } = await supabase
+  const { data: storyStocks } = await supabase
     .from('story_stocks')
     .select(`
       relationship_type,
@@ -68,11 +68,7 @@ export default async function StoryPage({
     .order('display_order', { ascending: true })
 
   const primary = storyStocks?.filter(
-    (s: any) => s.relationship_type === 'primary'
-  )
-
-  const secondary = storyStocks?.filter(
-    (s: any) => s.relationship_type === 'secondary'
+    (s: { relationship_type: string }) => s.relationship_type === 'primary'
   )
 
   const primaryImpact = primary?.[0]

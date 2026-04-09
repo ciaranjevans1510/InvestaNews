@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Star, Share2, Gift } from 'lucide-react';
+import { ArrowLeft, Share2, Gift } from 'lucide-react';
 import { Card, Button, Badge } from '../ui/Basic';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';

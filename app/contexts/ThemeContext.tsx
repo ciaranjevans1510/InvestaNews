@@ -18,6 +18,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Get theme from localStorage or system preference
     const savedTheme = localStorage.getItem('investanews-theme') as Theme | null;
     if (savedTheme) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTheme(savedTheme);
     } else {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

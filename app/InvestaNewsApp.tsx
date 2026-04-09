@@ -34,12 +34,12 @@ const InvestaNewsAppContent: React.FC = () => {
   const { session, authLoading, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
-  const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
+  const [, setCurrentTab] = useState<NavigationTab>('home');
   const [selectedSector, setSelectedSector] = useState('Technology');
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [stockNavigationList, setStockNavigationList] = useState<Stock[]>([]);
   const [startHomeTour, setStartHomeTour] = useState(false);
-  const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
+  const [, setScreenHistory] = useState<Screen[]>([]);
   const [mounted, setMounted] = useState(false);
   // Track previously seen user ID so token refreshes don't reset navigation
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
@@ -56,6 +56,7 @@ const InvestaNewsAppContent: React.FC = () => {
       const welcomeCompleted = localStorage.getItem('investanews-welcome-completed');
       if (!currentUserId) {
         if (welcomeCompleted !== 'true') {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setCurrentScreen('welcome');
         } else {
           setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
@@ -72,13 +73,8 @@ const InvestaNewsAppContent: React.FC = () => {
     prevUserIdRef.current = currentUserId;
 
     // Real auth transition (sign-in or sign-out)
-    if (!currentUserId) {
-      const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
-      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
-    } else {
-      const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
-      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
-    }
+    const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
+    setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
   }, [authLoading, session]);
 
   useEffect(() => {
@@ -136,13 +132,6 @@ const InvestaNewsAppContent: React.FC = () => {
     localStorage.setItem('investanews-tutorial-completed', 'true');
   };
 
-  const handleOnboardingSkip = () => {
-    setScreenHistory([]);
-    setCurrentScreen('home');
-    setCurrentTab('home');
-    localStorage.setItem('investanews-tutorial-completed', 'true');
-  };
-
   const handleExploreSolo = () => {
     setStartHomeTour(false);
     setScreenHistory([]);
@@ -167,11 +156,6 @@ const InvestaNewsAppContent: React.FC = () => {
     setScreenHistory([]);
     await signOut();
   };
-
-  const handleTabChange = (tab: NavigationTab) => {
-    openScreen(tab);
-  };
-
   const handleSelectCategory = (category: string) => {
     setSelectedSector(category);
     openScreen('category-stocks');
@@ -233,7 +217,7 @@ const InvestaNewsAppContent: React.FC = () => {
         return (
           <OnboardingScreen
             onComplete={handleOnboardingComplete}
-            onSkip={handleOnboardingSkip}
+            onSkip={handleOnboardingComplete}
           />
         );
       case 'quiz':
