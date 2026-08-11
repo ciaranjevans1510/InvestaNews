@@ -18,6 +18,7 @@ interface DashboardScreenProps {
   onOpenBeta?: () => void;
   startTooltipTour?: boolean;
   onTooltipTourComplete?: () => void;
+  accountButtonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 interface HomeStory {
@@ -29,44 +30,44 @@ interface HomeStory {
 
 interface StoriesResponse {
   stories?: HomeStory[];
-  recommendedStories?: HomeStory[];
 }
 
 const TOOLTIP_STEPS = [
   {
     title: 'Home Button',
     message: 'Tap the InvestaNews logo to restart the intro flow at any time.',
-    focusClass: 'top-4 left-4 w-[296px] h-[64px]',
-    bubbleClass: 'top-[82px] left-4 w-[250px]',
-    tailClass: '-top-2 left-6',
+    target: 'homeButton',
+    placement: 'below',
   },
   {
     title: 'Beta Info',
     message: 'Open the Beta page here for updates, rewards, and install help.',
-    focusClass: 'top-4 right-4 w-[130px] h-[64px]',
-    bubbleClass: 'top-[82px] right-4 w-[240px]',
-    tailClass: '-top-2 right-6',
-  },
-  {
-    title: 'All Stories',
-    message: 'This tab shows your main story feed. Swipe the cards to browse.',
-    focusClass: 'top-[222px] left-4 w-[128px] h-[48px]',
-    bubbleClass: 'top-[276px] left-4 w-[245px]',
-    tailClass: '-top-2 left-6',
-  },
-  {
-    title: 'Recommended',
-    message: 'This tab shows stories tailored to your favourites and preferences.',
-    focusClass: 'top-[222px] left-[136px] w-[152px] h-[48px]',
-    bubbleClass: 'top-[276px] left-[136px] w-[250px]',
-    tailClass: '-top-2 left-6',
+    target: 'betaButton',
+    placement: 'below',
   },
   {
     title: 'Quick Explore',
     message: 'Use these action buttons lower down to jump into Explore or Search quickly.',
-    focusClass: 'bottom-[54px] left-4 right-4 h-[56px]',
-    bubbleClass: 'bottom-[118px] left-4 w-[290px]',
-    tailClass: '-bottom-2 left-8',
+    target: 'quickActions',
+    placement: 'above',
+  },
+  {
+    title: 'Account',
+    message: 'Open your profile to view your progress, settings, and saved favourites.',
+    target: 'accountButton',
+    placement: 'below',
+  },
+  {
+    title: 'Your Favourites',
+    message: 'This is where your favourite stocks live. Tap an empty tile to add a new one.',
+    target: 'favouritesGrid',
+    placement: 'below',
+  },
+  {
+    title: 'More Tiles',
+    message: 'When your favourites are full, expand your slots using the More Tiles button.',
+    target: 'moreTilesButton',
+    placement: 'above',
   },
 ] as const;
 
@@ -108,13 +109,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenBeta,
   startTooltipTour,
   onTooltipTourComplete,
+  accountButtonRef,
 }) => {
   const router = useRouter();
   const { theme } = useTheme();
   const { favourites, removeFavourite, favouriteTileCount, tutorialCompleted } = useAppContext();
   const [stories, setStories] = useState<HomeStory[]>(fallbackHomeStories);
-  const [recommendedStories, setRecommendedStories] = useState<HomeStory[]>([]);
-  const [activeTab, setActiveTab] = useState<'recommended' | 'all'>('all');
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [failedLogos, setFailedLogos] = useState<Record<string, boolean>>({});
@@ -127,7 +127,98 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     .map((favorite) => favorite.stock.symbol)
     .filter(Boolean)
     .join(',');
-  const hasRecommendationSignals = favourites.length > 0 || tutorialCompleted;
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const homeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const betaButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const quickActionsRef = React.useRef<HTMLDivElement | null>(null);
+  const favouritesGridRef = React.useRef<HTMLDivElement | null>(null);
+  const moreTilesButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const [tooltipStyles, setTooltipStyles] = useState<{
+    focus?: React.CSSProperties;
+    bubble?: React.CSSProperties;
+    tail?: React.CSSProperties;
+  }>({});
+
+  const getTooltipTarget = (target: string) => {
+    switch (target) {
+      case 'homeButton':
+        return homeButtonRef.current;
+      case 'betaButton':
+        return betaButtonRef.current;
+      case 'quickActions':
+        return quickActionsRef.current;
+      case 'accountButton':
+        return accountButtonRef?.current ?? null;
+      case 'favouritesGrid':
+        return favouritesGridRef.current;
+      case 'moreTilesButton':
+        return moreTilesButtonRef.current;
+      default:
+        return null;
+    }
+  };
+
+  const computeTooltipStyles = () => {
+    const current = TOOLTIP_STEPS[tourStep];
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    const targetElement = getTooltipTarget(current.target);
+    const targetRect = targetElement?.getBoundingClientRect();
+
+    if (!containerRect || !targetRect) {
+      return {
+        focus: undefined,
+        bubble: undefined,
+        tail: undefined,
+      };
+    }
+
+    const relativeTop = targetRect.top - containerRect.top;
+    const relativeLeft = targetRect.left - containerRect.left;
+    const focusStyle: React.CSSProperties = {
+      top: relativeTop,
+      left: relativeLeft,
+      width: targetRect.width,
+      height: targetRect.height,
+    };
+
+    const bubbleWidth = Math.min(320, containerRect.width - 32);
+    const left = Math.max(16, Math.min(relativeLeft, containerRect.width - bubbleWidth - 16));
+    const centerX = relativeLeft + targetRect.width / 2;
+    const tailLeft = Math.max(24, Math.min(centerX - left - 8, bubbleWidth - 24));
+    const bubbleStyle: React.CSSProperties = {
+      width: bubbleWidth,
+      left,
+    };
+    const tailStyle: React.CSSProperties = {
+      left: tailLeft,
+    };
+
+    if (current.placement === 'below') {
+      bubbleStyle.top = relativeTop + targetRect.height + 12;
+      tailStyle.top = -8;
+    } else {
+      bubbleStyle.top = relativeTop - 130;
+      tailStyle.bottom = -8;
+    }
+
+    return {
+      focus: focusStyle,
+      bubble: bubbleStyle,
+      tail: tailStyle,
+    };
+  };
+
+  useEffect(() => {
+    if (!tourOpen) return;
+    const update = () => setTooltipStyles(computeTooltipStyles());
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [tourOpen, tourStep]);
 
   // Create visible favorite tiles based on the user's purchased capacity.
   const favoriteSlots = Array(favouriteTileCount).fill(null).map((_, index) => favourites[index]);
@@ -167,13 +258,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         const payload = (await response.json()) as StoriesResponse;
         const dbStories = Array.isArray(payload?.stories) ? payload.stories : [];
-        const nextRecommendedStories = Array.isArray(payload?.recommendedStories)
-          ? payload.recommendedStories
-          : [];
 
         if (isMounted) {
           setStories(mergeStories(dbStories as HomeStory[]));
-          setRecommendedStories(nextRecommendedStories);
         }
       } catch {
         // Keep the fallback stories already set in initial state.
@@ -188,8 +275,38 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   }, [preferredTickerQuery]);
 
   const openStory = (slug: string) => {
+    if (!slug) {
+      onNavigate?.('stories');
+      return;
+    }
+
     router.push(`/stories/${slug}`);
   };
+
+  const dailyStory = stories.find(
+    (story) => story.title?.trim().toLowerCase() === DAILY_STORY_TITLE,
+  );
+
+  const heroStory = dailyStory ?? {
+    id: 'today-in-60-seconds',
+    slug: '',
+    title: 'Today in 60 seconds',
+    subtitle: dailyStory
+      ? 'A daily quick market story delivered in a single tile.'
+      : 'When today’s story is published, tap here to read it.',
+  };
+
+  const openDailyStory = () => {
+    if (dailyStory?.slug) {
+      openStory(dailyStory.slug);
+      return;
+    }
+    onNavigate?.('stories');
+  };
+
+  const topStories = stories
+    .filter((story) => story.id !== heroStory.id)
+    .slice(0, 2);
 
   const closeTour = () => {
     setTourOpen(false);
@@ -209,6 +326,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className="relative pb-10 px-4"
       style={{
         background: isDark
@@ -218,259 +336,104 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }}
     >
       {/* Header */}
-      <div className="pt-5 pb-6 flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onResetExperience}
-              className="text-left px-3 py-2 rounded-xl border opacity-90 hover:opacity-70 active:opacity-55 transition-opacity cursor-pointer"
-              style={{
-                backgroundColor: isDark ? '#1b2235' : '#f6f9ff',
-                borderColor: isDark ? '#40508f' : '#c8d8ee',
-              }}
-              aria-label="Reset and start intro flow"
-            >
-              <InvestaNewsLogo
-                textColor={isDark ? '#f8fbff' : '#17325d'}
-                newsOpacity={0.72}
-              />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenBeta}
-              className="px-3 py-1 rounded-xl text-3xl font-bold leading-tight flex items-center justify-between gap-2 cursor-pointer"
-              style={{
-                backgroundColor: isDark ? '#2d3361' : '#e8efff',
-                color: isDark ? '#dbe4ff' : '#3558a8',
-                border: `1px solid ${isDark ? '#4f5ecf' : '#bfd0ff'}`,
-              }}
-              aria-label="Open beta page"
-            >
-              <span>BETA</span>
-              <span
-                className="h-8 w-8 rounded-full flex items-center justify-center"
-                style={{
-                  backgroundColor: isDark ? '#4f5ecf' : '#cddcff',
-                  color: isDark ? '#eef3ff' : '#25478f',
-                }}
-              >
-                <ChevronRight size={18} strokeWidth={2.5} />
-              </span>
-            </button>
-          </div>
-          <div className="text-sm mt-1" style={{ color: textSecondary }}>
-            Understand the market.
-          </div>
+      <div className="pt-24 pb-4 flex justify-center items-start">
+        <div className="text-sm text-center" style={{ color: textSecondary }}>
+          Market news, explained simply
         </div>
       </div>
 
-      {/* Stories Tabs */}
-      <div className="flex gap-1 mb-0.5">
-        <button
-          onClick={() => setActiveTab('all')}
-          className="px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all"
-          style={{
-            backgroundColor: activeTab === 'all' ? surfaceColor : (isDark ? '#3c3f44' : '#dbe7f5'),
-            color: textColor,
-            borderBottom: activeTab === 'all' ? 'none' : `1px solid ${isDark ? COLORS.dark.border : COLORS.light.border}`,
-          }}
-        >
-          All Stories
-        </button>
-        <button
-          onClick={() => setActiveTab('recommended')}
-          className="px-4 py-2.5 rounded-t-lg text-sm font-medium transition-all"
-          style={{
-            backgroundColor: activeTab === 'recommended' ? surfaceColor : (isDark ? '#3c3f44' : '#dbe7f5'),
-            color: textColor,
-            borderBottom: activeTab === 'recommended' ? 'none' : `1px solid ${isDark ? COLORS.dark.border : COLORS.light.border}`,
-          }}
-        >
-          Recommended
-        </button>
-      </div>
-
       {/* Stories Container */}
-      <div className="rounded-b-lg mb-5 overflow-hidden"
+      <div className="rounded-lg mb-5 overflow-hidden"
         style={{ backgroundColor: surfaceColor }}
       >
         <div className="p-4">
-          {activeTab === 'recommended' && !hasRecommendationSignals && (
-            <div
-              className="rounded-2xl border px-4 py-5"
-              style={{
-                backgroundColor: isDark ? '#2d2e31' : '#f4f8fe',
-                borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
-              }}
-            >
-              <div className="text-base font-semibold" style={{ color: textColor }}>
-                Unlock personalized stories
-              </div>
-              <p className="text-sm mt-2" style={{ color: textSecondary }}>
-                Add stocks to your favourites or complete the quiz to get recommendations tailored to you.
-              </p>
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => onNavigate?.('search')}
-                  className="px-3 py-2 rounded-full text-sm font-medium"
-                  style={{ backgroundColor: COLORS.primary, color: 'white' }}
-                >
-                  Add favourites
-                </button>
-                <button
-                  onClick={() => onNavigate?.('quiz')}
-                  className="px-3 py-2 rounded-full text-sm font-medium"
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: textColor,
-                    border: `1px solid ${isDark ? COLORS.dark.border : COLORS.light.border}`,
-                  }}
-                >
-                  Take quiz
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'recommended' && hasRecommendationSignals && recommendedStories.length > 0 && (
-            <>
-              <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-                {recommendedStories.map((story) => (
+            <div className="space-y-4">
+              <div>
+                <div>
                   <button
-                    key={`recommended-${story.id}`}
-                    onClick={() => openStory(story.slug)}
-                    className="rounded-2xl border text-left flex-shrink-0 px-4 py-5 transition-all hover:opacity-90"
+                    onClick={openDailyStory}
+                    className="rounded-[2rem] p-5 text-left transition-all hover:opacity-95"
                     style={{
-                      width: '178px',
-                      minHeight: '210px',
-                      backgroundColor: isDark ? '#2d2e31' : '#f4f8fe',
-                      borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
+                      width: '100%',
+                      maxWidth: '520px',
+                      aspectRatio: '1 / 1',
+                      marginLeft: 'auto',
+                      marginRight: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      padding: '28px',
+                      background: isDark
+                        ? 'linear-gradient(135deg, #2b3151 0%, #1e2543 100%)'
+                        : 'linear-gradient(135deg, #dbe8ff 0%, #f5f8ff 100%)',
+                      border: `1px solid ${isDark ? COLORS.dark.border : COLORS.light.border}`,
                     }}
+                    aria-label={dailyStory?.slug ? 'Open today in 60 seconds story' : 'Explore stories'}
                   >
-                    <div className="h-full flex flex-col justify-end">
-                      <div
-                        className="text-xl leading-tight font-semibold"
-                        style={{ color: textColor }}
-                      >
-                        {story.title}
+                    <div>
+                      <div className="text-sm uppercase tracking-[0.26em] font-semibold" style={{ color: isDark ? '#9fb2ff' : '#4667b8' }}>
+                        Daily story
                       </div>
-                      {story.subtitle && (
-                        <div
-                          className="text-xs mt-2 leading-relaxed"
-                          style={{ color: textSecondary }}
-                        >
-                          {story.subtitle}
-                        </div>
-                      )}
+                      <div className="mt-4 text-2xl font-bold leading-tight" style={{ color: isDark ? '#ffffff' : '#10243c' }}>
+                        {heroStory.title}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm leading-relaxed" style={{ color: isDark ? 'rgba(255,255,255,0.78)' : '#45617f' }}>
+                        {heroStory.subtitle}
+                      </p>
                     </div>
                   </button>
-                ))}
-              </div>
-              <div
-                className="mt-3 rounded-[2rem] p-5 border"
-                style={{
-                  background: 'linear-gradient(140deg, #dcebff 0%, #edf5ff 100%)',
-                  borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
-                }}
-              >
-                <p className="text-base font-semibold" style={{ color: '#12345f' }}>
-                  Find your perfect stocks 🎯
-                </p>
-                <p className="text-sm mt-1" style={{ color: '#32517d' }}>
-                  Take the quiz and we'll match stories to what you actually care about.
-                </p>
-                <button
-                  onClick={() => onNavigate?.('quiz')}
-                  className="mt-4 w-full rounded-full py-3 text-base font-medium"
-                  style={{
-                    background: 'linear-gradient(140deg, #185dc9 0%, #2f87ed 100%)',
-                    color: 'white',
-                  }}
-                >
-                  Let's go →
-                </button>
-              </div>
-            </>
-          )}
-
-          {activeTab === 'recommended' && hasRecommendationSignals && recommendedStories.length === 0 && (
-            <div className="space-y-3">
-              <div
-                className="rounded-2xl border px-4 py-5"
-                style={{
-                  backgroundColor: isDark ? '#2d2e31' : '#f4f8fe',
-                  borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
-                }}
-              >
-                <div className="text-base font-semibold" style={{ color: textColor }}>
-                  We are learning your preferences
                 </div>
-                <p className="text-sm mt-2" style={{ color: textSecondary }}>
-                  Add more favourite stocks to improve recommendations.
-                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {topStories.map((story) => (
+                    <button
+                      key={story.id}
+                      onClick={() => openStory(story.slug)}
+                      className="rounded-3xl border text-left px-3 py-3 transition-all hover:opacity-95"
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        backgroundColor: isDark ? '#22252d' : '#f8fbff',
+                        borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        padding: '12px',
+                      }}
+                    >
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: textColor }}>
+                          {story.title}
+                        </div>
+                        {story.subtitle && (
+                          <div className="mt-2 text-xs leading-snug" style={{ color: textSecondary }}>
+                            {story.subtitle}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: isDark ? '#9fb2ff' : '#4667b8' }}>
+                        Top story
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div
-                className="rounded-[2rem] p-5 border"
-                style={{
-                  background: 'linear-gradient(140deg, #dcebff 0%, #edf5ff 100%)',
-                  borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
-                }}
-              >
-                <p className="text-base font-semibold" style={{ color: '#12345f' }}>
-                  Find your perfect stocks 🎯
-                </p>
-                <p className="text-sm mt-1" style={{ color: '#32517d' }}>
-                  Take the quiz and we'll match stories to what you actually care about.
-                </p>
+
+              <div className="flex justify-end">
                 <button
-                  onClick={() => onNavigate?.('quiz')}
-                  className="mt-4 w-full rounded-full py-3 text-base font-medium"
+                  onClick={() => onNavigate?.('stories')}
+                  className="rounded-full px-5 py-3 text-sm font-semibold transition-all hover:opacity-90"
                   style={{
-                    background: 'linear-gradient(140deg, #185dc9 0%, #2f87ed 100%)',
+                    backgroundColor: COLORS.primary,
                     color: 'white',
                   }}
                 >
-                  Let's go →
+                  View more stories
                 </button>
               </div>
             </div>
-          )}
-
-          {activeTab === 'all' && (
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-              {stories.map((story) => (
-                <button
-                  key={story.id}
-                  onClick={() => openStory(story.slug)}
-                  className="rounded-2xl border text-left flex-shrink-0 px-4 py-5 transition-all hover:opacity-90"
-                  style={{
-                    width: '178px',
-                    minHeight: '235px',
-                    backgroundColor: isDark ? '#2d2e31' : '#f4f8fe',
-                    borderColor: isDark ? COLORS.dark.border : COLORS.light.border,
-                  }}
-                >
-                  <div className="h-full flex flex-col justify-end">
-                    <div
-                      className="text-xl leading-tight font-semibold"
-                      style={{ color: textColor }}
-                    >
-                      {story.title}
-                    </div>
-                    {story.subtitle && (
-                      <div
-                        className="text-xs mt-2 leading-relaxed"
-                        style={{ color: textSecondary }}
-                      >
-                        {story.subtitle}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -483,8 +446,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       {tourOpen && (
         <div className="absolute inset-0 z-40 pointer-events-none">
           <div
-            className={`absolute rounded-2xl border-2 ${currentTooltip.focusClass}`}
+            className="absolute rounded-2xl border-2"
             style={{
+              ...tooltipStyles.focus,
               borderColor: isDark ? '#7c8cff' : '#5f76ff',
               boxShadow: isDark
                 ? '0 0 0 9999px rgba(10, 18, 39, 0.55)'
@@ -492,15 +456,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             }}
           />
           <div
-            className={`absolute rounded-2xl border p-3 shadow-xl pointer-events-auto ${currentTooltip.bubbleClass}`}
+            className="absolute rounded-2xl border p-3 shadow-xl pointer-events-auto"
             style={{
+              ...tooltipStyles.bubble,
               backgroundColor: isDark ? '#1a2342' : '#f6f9ff',
               borderColor: isDark ? '#4458b3' : '#b9ccff',
+              maxWidth: '320px',
             }}
           >
             <span
-              className={`absolute h-4 w-4 rotate-45 border ${currentTooltip.tailClass}`}
+              className="absolute h-4 w-4 rotate-45 border"
               style={{
+                ...tooltipStyles.tail,
                 backgroundColor: isDark ? '#1a2342' : '#f6f9ff',
                 borderColor: isDark ? '#4458b3' : '#b9ccff',
               }}
@@ -538,7 +505,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       )}
 
       {/* Quick navigation */}
-      <div className="flex gap-3 mb-6">
+      <div ref={quickActionsRef} className="flex gap-3 mb-6">
         <button
           onClick={() => onNavigate?.('discover')}
           className="flex-1 flex items-center gap-2 rounded-2xl px-4 py-3 transition-all hover:opacity-80"
@@ -565,7 +532,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-3 gap-3">
+      <div ref={favouritesGridRef} className="grid grid-cols-3 gap-3">
         {favoriteSlots.map((favorite, index) => {
           if (favorite) {
             const stock = favorite.stock;
@@ -692,6 +659,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </button>
 
         <button
+          ref={moreTilesButtonRef}
           onClick={() => onNavigate?.('more-tiles')}
           className="w-full rounded-full py-4 text-xl font-medium"
           style={{

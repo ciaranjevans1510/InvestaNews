@@ -93,6 +93,8 @@ export interface Story {
   image?: string;
   createdAt: Date;
   readTime: number;
+  sector?: string;
+  status?: 'draft' | 'published' | 'scheduled' | 'archived';
 }
 
 export interface RewardItem {

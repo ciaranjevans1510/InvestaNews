@@ -196,7 +196,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogo
               <div
                 className="absolute top-1 w-6 h-6 bg-white rounded-full transition-transform"
                 style={{
-                  transform: isDark ? 'translateX(28px)' : 'translateX(2px)',
+                  transform: isDark ? 'translateX(2px)' : 'translateX(28px)',
                 }}
               />
             </button>

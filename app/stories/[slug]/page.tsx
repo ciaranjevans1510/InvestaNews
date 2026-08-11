@@ -15,6 +15,7 @@ export default async function StoryPage({
     .from('stories')
     .select('id, slug, title, subtitle, summary')
     .eq('slug', slug)
+    .eq('status', 'published')
     .single()
 
   const mockStory = MOCK_STORIES.find((item) => item.slug === slug)

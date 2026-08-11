@@ -4,7 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Building2, ChevronLeft, ChevronRight, CircleDollarSign, Heart, Info, X } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
+import { Card, Button, Badge } from '../ui/Basic';
 import { getSupabaseClient } from '../../../lib/supabase/client';
+import { COLORS, SHADOW_STYLES } from '../../utils/colors';
 import type { Stock } from '../../types';
 
 interface StockDetailsScreenProps {
@@ -20,16 +22,11 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
   const isDark = theme === 'dark';
   const [dbStock, setDbStock] = useState<any | null>(null);
   const [relatedStocks, setRelatedStocks] = useState<Stock[]>([]);
-  const textSecondary = isDark ? '#cbd5e1' : '#5f6882';
-  const cardGradient = isDark
-    ? 'linear-gradient(180deg, #27355a 0%, #1b2744 100%)'
-    : 'linear-gradient(180deg, #e4ecfa 0%, #d9e5f8 100%)';
-  const cardBorder = isDark ? 'rgba(148, 163, 184, 0.24)' : '#bfd0ea';
-  const cardTitleColor = isDark ? '#f8fbff' : '#12213d';
-  const cardBodyColor = isDark ? '#d6e2f5' : '#30486d';
-  const cardLabelColor = isDark ? '#9db3d4' : '#5b7397';
-  const cardIconColor = isDark ? '#8ca6cb' : '#5b7397';
-  const cardDivider = isDark ? 'rgba(148, 163, 184, 0.24)' : 'rgba(91, 115, 151, 0.24)';
+  
+  const bgColor = isDark ? COLORS.dark.bg : COLORS.light.bg;
+  const textColor = isDark ? COLORS.dark.text : COLORS.light.text;
+  const textSecondary = isDark ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
+  
   const liked = isFavourite(stock.id);
   const addDisabled = liked || !canAddFavourite;
 
@@ -225,162 +222,165 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
 
   return (
     <div
-      className="px-4 pb-16"
+      className="pb-20 px-4 pt-5"
       style={{
+        backgroundColor: bgColor,
         minHeight: '100vh',
-        background: isDark ? 'linear-gradient(180deg, #2a2430 0%, #1f253b 100%)' : '#eceaf0',
       }}
     >
-      <div
-        className="mx-auto max-w-md rounded-[2.5rem] min-h-screen px-4 pt-5 pb-12 md:max-w-none md:rounded-none"
-        style={{
-          backgroundColor: isDark ? 'rgba(13, 20, 38, 0.45)' : '#e7e4eb',
-        }}
-      >
-        <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <button
+          onClick={onBack}
+          className="p-1 rounded-lg"
+          style={{ color: textSecondary }}
+          aria-label="Back"
+        >
+          <ArrowLeft size={28} />
+        </button>
+        
+        {/* Navigation Controls */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={onBack}
-            className="p-1 rounded-lg"
-            style={{ color: textSecondary }}
-            aria-label="Back"
+            onClick={() => handleNavigateAdjacent('prev')}
+            disabled={!canGoPrev}
+            className="rounded-lg p-2 disabled:opacity-35 transition-all"
+            style={{
+              backgroundColor: isDark ? COLORS.dark.surface : COLORS.light.surface,
+              border: `1px solid ${isDark ? COLORS.dark.border : COLORS.light.border}`,
+              color: isDark ? COLORS.dark.text : COLORS.light.text,
+            }}
+            aria-label="Previous stock"
           >
-            <ArrowLeft size={28} />
+            <ChevronLeft size={20} />
           </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleNavigateAdjacent('prev')}
-              disabled={!canGoPrev}
-              className="rounded-full p-2 disabled:opacity-35"
-              style={{
-                backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(17, 58, 110, 0.08)',
-                color: isDark ? '#dbe8ff' : '#12345f',
-              }}
-              aria-label="Previous stock"
-            >
-              <ChevronLeft size={16} />
-            </button>
+          
+          <div className="flex items-center gap-1.5">
             {dotStocks.map((dotStock) => {
               const isActive = dotStock.symbol === ticker;
               return (
                 <button
                   key={dotStock.id}
                   onClick={() => handleSelectDotStock(dotStock)}
-                  className="rounded-full"
+                  className="rounded-full transition-all"
                   aria-label={`Switch to ${dotStock.symbol}`}
                   style={{
-                    width: isActive ? '44px' : '14px',
-                    height: '14px',
-                    backgroundColor: isActive ? (isDark ? '#7488a8' : '#375b92') : (isDark ? '#7f8da4' : '#b8c8de'),
+                    width: isActive ? '28px' : '8px',
+                    height: '8px',
+                    backgroundColor: isActive ? COLORS.primary : (isDark ? COLORS.dark.border : COLORS.light.border),
                   }}
                 />
               );
             })}
-            <button
-              onClick={() => handleNavigateAdjacent('next')}
-              disabled={!canGoNext}
-              className="rounded-full p-2 disabled:opacity-35"
-              style={{
-                backgroundColor: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(17, 58, 110, 0.08)',
-                color: isDark ? '#dbe8ff' : '#12345f',
-              }}
-              aria-label="Next stock"
-            >
-              <ChevronRight size={16} />
-            </button>
           </div>
-        </div>
-
-        <div
-          className="mt-16 rounded-[2.5rem] border px-6 py-7"
-          style={{
-            background: cardGradient,
-            borderColor: cardBorder,
-          }}
-        >
-          <div className="text-6xl font-bold leading-none" style={{ color: cardTitleColor }}>
-            {ticker}
-          </div>
-          <div className="text-2xl mt-3" style={{ color: cardBodyColor }}>
-            {companyName}
-          </div>
-
-          <div className="mt-6 border-t" style={{ borderColor: cardDivider }} />
-
-          <div className="mt-6 grid gap-5">
-            <div className="flex items-start gap-4">
-              <div className="mt-1">
-                <Building2 size={28} color={cardIconColor} />
-              </div>
-              <div>
-                <div className="text-lg" style={{ color: cardLabelColor }}>Industry</div>
-                <div className="text-3xl font-medium" style={{ color: cardTitleColor }}>{industry}</div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="mt-1">
-                <CircleDollarSign size={28} color={cardIconColor} />
-              </div>
-              <div>
-                <div className="text-lg" style={{ color: cardLabelColor }}>Market Cap</div>
-                <div className="text-3xl font-medium" style={{ color: cardTitleColor }}>
-                  {marketCapText} | {capCategory}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 border-t" style={{ borderColor: cardDivider }} />
-
-          <p className="mt-5 text-[2rem] leading-[1.45]" style={{ color: cardBodyColor }}>
-            {description}
-          </p>
-
-          <div className="mt-8 grid grid-cols-2 gap-3">
-            <button
-              onClick={onBack}
-              className="rounded-full py-4 px-4 text-2xl font-medium flex items-center justify-center gap-2"
-              style={{
-                backgroundColor: isDark ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.68)',
-                color: cardBodyColor,
-              }}
-            >
-              <X size={22} />
-              Not Interested
-            </button>
-
-            <button
-              onClick={() => addFavourite(stock)}
-              disabled={addDisabled}
-              className="rounded-full py-4 px-4 text-2xl font-medium disabled:opacity-60 flex items-center justify-center gap-2"
-              style={{
-                backgroundColor: '#4b4f68',
-                color: 'white',
-              }}
-            >
-              <Heart size={22} />
-              {liked ? 'Saved' : canAddFavourite ? 'Add to Favourites' : 'Tiles Full'}
-            </button>
-          </div>
-
+          
           <button
-            onClick={openMoreInfo}
-            disabled={!infoUrl}
-            className="mt-4 w-full rounded-full py-4 text-2xl font-medium disabled:opacity-60 flex items-center justify-center gap-2"
+            onClick={() => handleNavigateAdjacent('next')}
+            disabled={!canGoNext}
+            className="rounded-lg p-2 disabled:opacity-35 transition-all"
             style={{
-              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.45)' : 'rgba(255, 255, 255, 0.68)',
-              color: cardBodyColor,
+              backgroundColor: isDark ? COLORS.dark.surface : COLORS.light.surface,
+              border: `1px solid ${isDark ? COLORS.dark.border : COLORS.light.border}`,
+              color: isDark ? COLORS.dark.text : COLORS.light.text,
             }}
+            aria-label="Next stock"
           >
-            <Info size={22} />
-            See More Info
+            <ChevronRight size={20} />
           </button>
         </div>
-
-        <p className="text-center mt-7 text-lg" style={{ color: textSecondary }}>
-          Informational only. Content is shaped by your activity.
-        </p>
       </div>
+
+      {/* Main Stock Card */}
+      <Card className="mb-6">
+        <div className="mb-4">
+          <div className="text-5xl font-bold leading-tight" style={{ color: textColor }}>
+            {ticker}
+          </div>
+          <p className="text-lg mt-2" style={{ color: textSecondary }}>
+            {companyName}
+          </p>
+        </div>
+
+        {/* Details Grid */}
+        <div className="space-y-4 mt-6">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5">
+              <Building2 size={20} style={{ color: COLORS.primary }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium" style={{ color: textSecondary }}>
+                Industry
+              </p>
+              <p className="text-lg font-semibold mt-1" style={{ color: textColor }}>
+                {industry}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5">
+              <CircleDollarSign size={20} style={{ color: COLORS.primary }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-medium" style={{ color: textSecondary }}>
+                Market Cap
+              </p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-lg font-semibold" style={{ color: textColor }}>
+                  {marketCapText}
+                </p>
+                <Badge variant="secondary" size="sm">
+                  {capCategory}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Description Card */}
+      <Card className="mb-6">
+        <p className="text-base leading-relaxed" style={{ color: textColor }}>
+          {description}
+        </p>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Button
+          onClick={onBack}
+          variant="secondary"
+          className="flex items-center justify-center gap-2"
+        >
+          <X size={18} />
+          Skip
+        </Button>
+        
+        <Button
+          onClick={() => addFavourite(stock)}
+          disabled={addDisabled}
+          variant="primary"
+          className="flex items-center justify-center gap-2"
+        >
+          <Heart size={18} />
+          {liked ? 'Saved' : 'Save'}
+        </Button>
+      </div>
+
+      <Button
+        onClick={openMoreInfo}
+        disabled={!infoUrl}
+        variant="secondary"
+        className="w-full flex items-center justify-center gap-2 mb-6"
+      >
+        <Info size={18} />
+        More Info
+      </Button>
+
+      {/* Footer Text */}
+      <p className="text-center text-xs" style={{ color: textSecondary }}>
+        Informational only. Content is shaped by your activity.
+      </p>
     </div>
   );
 };

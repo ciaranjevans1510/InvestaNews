@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Moon, Sun, User } from 'lucide-react';
+import { Moon, Sun, User, ChevronRight } from 'lucide-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useTheme } from './contexts/ThemeContext';
 import { AppProvider } from './contexts/AppContext';
@@ -24,7 +24,7 @@ import { SignInScreen } from './components/screens/SignIn';
 import { SignUpScreen } from './components/screens/SignUp';
 import { BetaScreen } from './components/screens/Beta';
 import { InstallTutorialScreen } from './components/screens/InstallTutorial';
-import { COLORS } from './utils/colors';
+import { COLORS, SHADOW_STYLES } from './utils/colors';
 import type { Stock } from './types';
 
 type NavigationTab = 'home' | 'discover' | 'search' | 'rewards' | 'profile';
@@ -43,6 +43,7 @@ const InvestaNewsAppContent: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   // Track previously seen user ID so token refreshes don't reset navigation
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
+  const accountButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -286,7 +287,7 @@ const InvestaNewsAppContent: React.FC = () => {
       case 'install-tutorial':
         return <InstallTutorialScreen onBack={() => goBack('beta')} onToggleTheme={toggleTheme} />;
       default:
-        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} />;
+        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} accountButtonRef={accountButtonRef} />;
     }
   };
 
@@ -299,31 +300,94 @@ const InvestaNewsAppContent: React.FC = () => {
       }}
     >
       <div className="mx-auto w-full max-w-[460px] min-h-screen relative overflow-hidden border border-[#c6d7ee] shadow-[0_24px_70px_rgba(17,58,110,0.18)] md:max-w-none md:shadow-none">
-        {currentScreen !== 'beta' && currentScreen !== 'install-tutorial' && (
-          <div className="absolute top-4 right-4 z-30 flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="p-3 rounded-full transition-all"
-              style={{ backgroundColor: COLORS.primary, color: 'white' }}
-              aria-label="Toggle theme"
-            >
-              {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-            </button>
-            <button
-              onClick={() => navigate('profile')}
-              className="p-3 rounded-full transition-all"
-              style={{
-                backgroundColor: theme === 'dark' ? COLORS.dark.surface : COLORS.light.surface,
-                color: theme === 'dark' ? COLORS.dark.text : COLORS.light.text,
-                border: `1px solid ${theme === 'dark' ? COLORS.dark.border : COLORS.light.border}`,
-              }}
-              aria-label="Open profile"
-            >
-              <User size={22} />
-            </button>
-          </div>
-          </div>
+        {currentScreen === 'home' && (
+          <>
+            <div className="absolute top-4 left-0 right-0 z-30 px-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={toggleTheme}
+                    className="p-2.5 rounded-full transition-all relative overflow-hidden"
+                    style={{
+                      backgroundColor: COLORS.primary,
+                    }}
+                    aria-label="Toggle theme"
+                  >
+                    <div
+                      className="transition-transform flex items-center justify-center"
+                      style={{
+                        transform: theme === 'dark' ? 'translateX(0)' : 'translateX(2px)',
+                      }}
+                    >
+                      {theme === 'dark' ? <Sun size={20} color="white" /> : <Moon size={20} color="white" />}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => navigate('beta')}
+                    className="px-3 py-1.5 rounded-full text-[0.69rem] font-semibold leading-none flex items-center gap-2 cursor-pointer transition-all hover:opacity-80"
+                    style={{
+                      backgroundColor: theme === 'dark' ? '#2d3361' : '#e8efff',
+                      color: theme === 'dark' ? '#dbe4ff' : '#3558a8',
+                      border: `1px solid ${theme === 'dark' ? '#4f5ecf' : '#bfd0ff'}`,
+                      minHeight: '32px',
+                    }}
+                    aria-label="Open beta page"
+                  >
+                    <span>BETA</span>
+                    <span
+                      className="h-5 w-5 rounded-full flex items-center justify-center"
+                      style={{
+                        backgroundColor: theme === 'dark' ? '#4f5ecf' : '#cddcff',
+                        color: theme === 'dark' ? '#eef3ff' : '#25478f',
+                      }}
+                    >
+                      <ChevronRight size={12} strokeWidth={2} />
+                    </span>
+                  </button>
+                </div>
+
+                <div className="flex-1 flex items-stretch justify-center">
+                  <button
+                    type="button"
+                    className="rounded-[20px] px-7 text-3xl font-bold leading-none transition-all w-full h-full"
+                    style={{
+                      backgroundColor: theme === 'dark' ? COLORS.dark.surface : COLORS.light.bg,
+                      color: theme === 'dark' ? COLORS.dark.text : COLORS.light.text,
+                      border: `1px solid ${theme === 'dark' ? COLORS.dark.border : COLORS.light.border}`,
+                      boxShadow: theme === 'dark' ? SHADOW_STYLES.dark.lg : SHADOW_STYLES.light.lg,
+                      minWidth: 0,
+                      minHeight: '76px',
+                      textAlign: 'center',
+                    }}
+                    aria-label="InvestaNews home title"
+                  >
+                    <span style={{ color: theme === 'dark' ? COLORS.dark.text : undefined }}>Investa</span>
+                    <span
+                      style={{
+                        color: theme === 'dark' ? COLORS.dark.textSecondary : COLORS.light.textSecondary,
+                      }}
+                    >
+                      News
+                    </span>
+                  </button>
+                </div>
+
+                <button
+                  ref={accountButtonRef}
+                  onClick={() => navigate('profile')}
+                  className="p-3 rounded-full transition-all"
+                  style={{
+                    backgroundColor: theme === 'dark' ? COLORS.dark.surface : COLORS.light.surface,
+                    color: theme === 'dark' ? COLORS.dark.text : COLORS.light.text,
+                    border: `1px solid ${theme === 'dark' ? COLORS.dark.border : COLORS.light.border}`,
+                  }}
+                  aria-label="Open profile"
+                >
+                  <User size={22} />
+                </button>
+              </div>
+            </div>
+          </>
         )}
         {renderScreen()}
       </div>

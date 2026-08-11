@@ -130,36 +130,49 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
     };
   }, [searchQuery]);
 
+  useEffect(() => {
+    if (selectedStock && searchQuery.trim().toLowerCase() !== selectedStock.company.toLowerCase()) {
+      setSelectedStock(null);
+    }
+  }, [searchQuery, selectedStock]);
+
   const recommendedSymbols = ['AAPL', 'TSLA', 'NVDA', 'MSFT'];
   const recommendedStocks = MOCK_STOCKS.filter((stock) =>
     recommendedSymbols.includes(stock.symbol),
   );
 
-  const actionStock = selectedStock || recommendedStocks[0] || null;
+  const showDropdown = Boolean(searchQuery) && !selectedStock;
+  const actionStock = selectedStock;
+  const actionButtonActive = Boolean(selectedStock);
 
   const handleViewStock = () => {
     if (!actionStock) return;
     if (onSelectStock) {
-      onSelectStock(actionStock, recommendedStocks);
-      return;
+      const adjacentStocks = dbResults.length > 0 ? dbResults : recommendedStocks;
+      onSelectStock(actionStock, adjacentStocks);
     }
-    onNavigate?.('discover');
   };
 
   const handleAddFavourite = () => {
     if (!actionStock) return;
+    if (!canAddFavourite) {
+      onNavigate?.('more-tiles');
+      return;
+    }
     addFavourite(actionStock);
   };
 
   const actionAlreadyFavourite = actionStock ? isFavourite(actionStock.id) : false;
-  const addFavouriteDisabled = !actionStock || actionAlreadyFavourite || !canAddFavourite;
+  const addFavouriteDisabled = !actionStock || actionAlreadyFavourite;
+  const viewButtonDisabled = !actionStock;
+  const viewButtonStyle = {
+    backgroundColor: actionButtonActive ? COLORS.primary : (isDark ? 'rgba(108, 99, 255, 0.3)' : '#c7d2ff'),
+    color: actionButtonActive ? 'white' : (isDark ? '#6b73b7' : '#6b73b7'),
+    cursor: viewButtonDisabled ? 'not-allowed' : 'pointer',
+  };
 
   const openStock = (stock: Stock) => {
-    const adjacentStocks = searchQuery && dbResults.length > 0 ? dbResults : recommendedStocks;
-    if (onSelectStock) {
-      onSelectStock(stock, adjacentStocks);
-      return;
-    }
+    setSearchQuery(stock.company);
     setSelectedStock(stock);
   };
 
@@ -207,7 +220,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
           <SearchIcon size={34} color={textSecondary} />
         </div>
 
-        {searchQuery && (
+        {showDropdown && (
           <div
             className="absolute left-0 right-0 top-full mt-2 overflow-y-auto rounded-[2rem] shadow-lg z-20"
             style={{
@@ -267,88 +280,82 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
         </div>
       )}
 
-      {/* Default state — recommended tiles + action buttons */}
-      {!searchQuery && (
-        <>
-          <div className="mt-4 grid gap-3">
-            <button
-              onClick={handleViewStock}
-              className="w-full rounded-full py-4 text-2xl font-medium"
-              style={{ backgroundColor: COLORS.primary, color: isDark ? '#8f97ae' : 'white' }}
-            >
-              View Stock
-            </button>
+      <div className="mt-4 grid gap-3">
+        <button
+          onClick={handleViewStock}
+          disabled={viewButtonDisabled}
+          className="w-full rounded-full py-4 text-2xl font-medium disabled:opacity-60"
+          style={viewButtonStyle}
+        >
+          View Stock
+        </button>
 
-            <button
-              onClick={handleAddFavourite}
-              disabled={addFavouriteDisabled}
-              className="w-full rounded-full py-4 text-2xl font-medium disabled:opacity-60"
-              style={{
-                backgroundColor: COLORS.primary,
-                color: actionAlreadyFavourite
-                  ? (isDark ? '#c7ccda' : 'white')
-                  : (isDark ? '#8f97ae' : 'white'),
-              }}
-            >
-              {actionAlreadyFavourite ? 'Added to Favourites' : canAddFavourite ? 'Add to Favourites' : 'Tiles Full - More Tiles'}
-            </button>
-          </div>
+        <button
+          onClick={handleAddFavourite}
+          disabled={addFavouriteDisabled}
+          className="w-full rounded-full py-4 text-2xl font-medium disabled:opacity-60"
+          style={{
+            backgroundColor: actionButtonActive ? COLORS.primary : (isDark ? 'rgba(108, 99, 255, 0.3)' : '#c7d2ff'),
+            color: actionButtonActive ? 'white' : (isDark ? '#6b73b7' : '#6b73b7'),
+          }}
+        >
+          {actionAlreadyFavourite ? 'Added to Favourites' : canAddFavourite ? 'Add to Favourites' : 'Tiles Full - More Tiles'}
+        </button>
+      </div>
 
-          <div className="mt-6">
-            <h2 className="text-sm mb-3" style={{ color: textSecondary }}>
-              Recommended stocks
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {recommendedStocks.map((stock) => {
-                return (
-                  <button
-                    key={stock.id}
-                    onClick={() => openStock(stock)}
-                    className="text-left rounded-3xl p-4 border transition-all"
+      <div className="mt-6">
+        <h2 className="text-sm mb-3" style={{ color: textSecondary }}>
+          Recommended stocks
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          {recommendedStocks.map((stock) => {
+            return (
+              <button
+                key={stock.id}
+                onClick={() => openStock(stock)}
+                className="text-left rounded-3xl p-4 border transition-all"
+                style={{
+                  minHeight: '172px',
+                  background: isDark
+                    ? 'linear-gradient(145deg, rgba(28,38,66,0.95) 0%, rgba(20,29,52,0.95) 100%)'
+                    : 'linear-gradient(145deg, rgba(241,246,255,0.98) 0%, rgba(232,239,252,0.98) 100%)',
+                  borderColor: '#6C63FF',
+                  boxShadow: '0 0 0 1px rgba(108, 99, 255, 0.22)',
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div
+                    className="rounded-2xl px-3 py-1 text-xs font-semibold"
                     style={{
-                      minHeight: '172px',
-                      background: isDark
-                        ? 'linear-gradient(145deg, rgba(28,38,66,0.95) 0%, rgba(20,29,52,0.95) 100%)'
-                        : 'linear-gradient(145deg, rgba(241,246,255,0.98) 0%, rgba(232,239,252,0.98) 100%)',
-                      borderColor: '#6C63FF',
-                      boxShadow: '0 0 0 1px rgba(108, 99, 255, 0.22)',
+                      backgroundColor: isDark ? 'rgba(108, 99, 255, 0.22)' : 'rgba(108, 99, 255, 0.16)',
+                      color: textColor,
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div
-                        className="rounded-2xl px-3 py-1 text-xs font-semibold"
-                        style={{
-                          backgroundColor: isDark ? 'rgba(108, 99, 255, 0.22)' : 'rgba(108, 99, 255, 0.16)',
-                          color: textColor,
-                        }}
-                      >
-                        {stock.sector || 'Stock'}
-                      </div>
-                    </div>
+                    {stock.sector || 'Stock'}
+                  </div>
+                </div>
 
-                    <div className="text-3xl font-bold mt-4 leading-none" style={{ color: textColor }}>
-                      {stock.symbol}
-                    </div>
-                    <div className="text-sm mt-2 leading-snug" style={{ color: textSecondary }}>
-                      {stock.company}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                <div className="text-3xl font-bold mt-4 leading-none" style={{ color: textColor }}>
+                  {stock.symbol}
+                </div>
+                <div className="text-sm mt-2 leading-snug" style={{ color: textSecondary }}>
+                  {stock.company}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          <div className="mt-4">
-            <button
-              onClick={() => onNavigate?.('discover')}
-              className="w-full rounded-full py-4 text-2xl font-medium"
-              style={{ backgroundColor: surfaceColor, color: textColor }}
-            >
-              Explore More Stocks
-            </button>
-          </div>
-        </>
-      )}
+      <div className="mt-4">
+        <button
+          onClick={() => onNavigate?.('discover')}
+          className="w-full rounded-full py-4 text-2xl font-medium"
+          style={{ backgroundColor: surfaceColor, color: textColor }}
+        >
+          Explore More Stocks
+        </button>
+      </div>
 
       <div className="h-8" />
     </div>
