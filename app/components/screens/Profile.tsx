@@ -12,9 +12,10 @@ interface ProfileScreenProps {
   onNavigate?: (screen: string) => void;
   onLogout?: () => void;
   onBack?: () => void;
+  onResetExperience?: () => void;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogout, onBack }) => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogout, onBack, onResetExperience }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, userPoints, favourites, articlesReadCount } = useAppContext();
   const { authUser } = useAuth();
@@ -217,8 +218,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogo
         </Button>
       </div>
 
-      {!isGuest && (
-        <div className="px-4 mb-24">
+      <div className="px-4 mb-24 space-y-3">
+        {!isGuest && (
           <Button
             onClick={onLogout}
             variant="secondary"
@@ -228,8 +229,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate, onLogo
             <LogOut size={18} />
             Logout
           </Button>
-        </div>
-      )}
+        )}
+        <Button
+          onClick={() => {
+            onResetExperience?.();
+          }}
+          variant="secondary"
+          fullWidth
+          className="flex items-center justify-center gap-2"
+        >
+          Restart intro
+        </Button>
+      </div>
     </div>
   );
 };

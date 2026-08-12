@@ -18,6 +18,8 @@ interface DashboardScreenProps {
   onOpenBeta?: () => void;
   startTooltipTour?: boolean;
   onTooltipTourComplete?: () => void;
+  homeButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  betaButtonRef?: React.RefObject<HTMLButtonElement | null>;
   accountButtonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
@@ -109,6 +111,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenBeta,
   startTooltipTour,
   onTooltipTourComplete,
+  homeButtonRef,
+  betaButtonRef,
   accountButtonRef,
 }) => {
   const router = useRouter();
@@ -128,8 +132,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     .filter(Boolean)
     .join(',');
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const homeButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const betaButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const quickActionsRef = React.useRef<HTMLDivElement | null>(null);
   const favouritesGridRef = React.useRef<HTMLDivElement | null>(null);
   const moreTilesButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -142,9 +144,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const getTooltipTarget = (target: string) => {
     switch (target) {
       case 'homeButton':
-        return homeButtonRef.current;
+        return homeButtonRef?.current ?? null;
       case 'betaButton':
-        return betaButtonRef.current;
+        return betaButtonRef?.current ?? null;
       case 'quickActions':
         return quickActionsRef.current;
       case 'accountButton':
@@ -160,11 +162,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   const computeTooltipStyles = () => {
     const current = TOOLTIP_STEPS[tourStep];
-    const containerRect = containerRef.current?.getBoundingClientRect();
     const targetElement = getTooltipTarget(current.target);
     const targetRect = targetElement?.getBoundingClientRect();
 
-    if (!containerRect || !targetRect) {
+    if (!targetRect) {
       return {
         focus: undefined,
         bubble: undefined,
@@ -172,20 +173,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       };
     }
 
-    const relativeTop = targetRect.top - containerRect.top;
-    const relativeLeft = targetRect.left - containerRect.left;
     const focusStyle: React.CSSProperties = {
-      top: relativeTop,
-      left: relativeLeft,
+      position: 'fixed',
+      top: targetRect.top,
+      left: targetRect.left,
       width: targetRect.width,
       height: targetRect.height,
     };
 
-    const bubbleWidth = Math.min(320, containerRect.width - 32);
-    const left = Math.max(16, Math.min(relativeLeft, containerRect.width - bubbleWidth - 16));
-    const centerX = relativeLeft + targetRect.width / 2;
+    const bubbleWidth = Math.min(320, window.innerWidth - 32);
+    const left = Math.max(16, Math.min(targetRect.left, window.innerWidth - bubbleWidth - 16));
+    const centerX = targetRect.left + targetRect.width / 2;
     const tailLeft = Math.max(24, Math.min(centerX - left - 8, bubbleWidth - 24));
     const bubbleStyle: React.CSSProperties = {
+      position: 'fixed',
       width: bubbleWidth,
       left,
     };
@@ -194,10 +195,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     };
 
     if (current.placement === 'below') {
-      bubbleStyle.top = relativeTop + targetRect.height + 12;
+      bubbleStyle.top = targetRect.top + targetRect.height + 12;
       tailStyle.top = -8;
     } else {
-      bubbleStyle.top = relativeTop - 130;
+      bubbleStyle.top = Math.max(16, targetRect.top - 130);
       tailStyle.bottom = -8;
     }
 
@@ -207,7 +208,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       tail: tailStyle,
     };
   };
-
   useEffect(() => {
     if (!tourOpen) return;
     const update = () => setTooltipStyles(computeTooltipStyles());

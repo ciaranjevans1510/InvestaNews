@@ -44,6 +44,8 @@ const InvestaNewsAppContent: React.FC = () => {
   // Track previously seen user ID so token refreshes don't reset navigation
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
   const accountButtonRef = useRef<HTMLButtonElement | null>(null);
+  const homeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const betaButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -55,12 +57,8 @@ const InvestaNewsAppContent: React.FC = () => {
       prevUserIdRef.current = currentUserId;
       const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
       const welcomeCompleted = localStorage.getItem('investanews-welcome-completed');
-      if (!currentUserId) {
-        if (welcomeCompleted !== 'true') {
-          setCurrentScreen('welcome');
-        } else {
-          setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
-        }
+      if (welcomeCompleted !== 'true') {
+        setCurrentScreen('welcome');
       } else {
         setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
       }
@@ -73,11 +71,11 @@ const InvestaNewsAppContent: React.FC = () => {
     prevUserIdRef.current = currentUserId;
 
     // Real auth transition (sign-in or sign-out)
-    if (!currentUserId) {
-      const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
-      setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
+    const welcomeCompleted = localStorage.getItem('investanews-welcome-completed');
+    const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
+    if (welcomeCompleted !== 'true') {
+      setCurrentScreen('welcome');
     } else {
-      const tutorialCompleted = localStorage.getItem('investanews-tutorial-completed');
       setCurrentScreen(tutorialCompleted === 'true' ? 'home' : 'get-started');
     }
   }, [authLoading, session]);
@@ -244,7 +242,7 @@ const InvestaNewsAppContent: React.FC = () => {
       case 'learning':
         return <LearningHubScreen onNavigate={navigate} onBack={() => goBack('profile')} />;
       case 'home':
-        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} />;
+        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} homeButtonRef={homeButtonRef} betaButtonRef={betaButtonRef} accountButtonRef={accountButtonRef} />;
       case 'discover':
         return (
           <DiscoveryScreen
@@ -281,13 +279,13 @@ const InvestaNewsAppContent: React.FC = () => {
       case 'rewards':
         return <RewardsScreen onNavigate={navigate} onBack={() => goBack('home')} />;
       case 'profile':
-        return <ProfileScreen onNavigate={navigate} onLogout={handleLogout} onBack={() => goBack('home')} />;
+        return <ProfileScreen onNavigate={navigate} onLogout={handleLogout} onBack={() => goBack('home')} onResetExperience={handleResetExperience} />;
       case 'beta':
         return <BetaScreen onBack={() => goBack('home')} onToggleTheme={toggleTheme} onOpenInstallTutorial={() => openScreen('install-tutorial')} />;
       case 'install-tutorial':
         return <InstallTutorialScreen onBack={() => goBack('beta')} onToggleTheme={toggleTheme} />;
       default:
-        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} accountButtonRef={accountButtonRef} />;
+        return <DashboardScreen onNavigate={navigate} onSelectStock={handleSelectStock} onResetExperience={handleResetExperience} onOpenBeta={() => openScreen('beta')} startTooltipTour={startHomeTour} onTooltipTourComplete={handleHomeTourComplete} homeButtonRef={homeButtonRef} betaButtonRef={betaButtonRef} accountButtonRef={accountButtonRef} />;
     }
   };
 
@@ -323,6 +321,7 @@ const InvestaNewsAppContent: React.FC = () => {
                     </div>
                   </button>
                   <button
+                    ref={betaButtonRef}
                     onClick={() => navigate('beta')}
                     className="px-3 py-1.5 rounded-full text-[0.69rem] font-semibold leading-none flex items-center gap-2 cursor-pointer transition-all hover:opacity-80"
                     style={{
@@ -348,7 +347,9 @@ const InvestaNewsAppContent: React.FC = () => {
 
                 <div className="flex-1 flex items-stretch justify-center">
                   <button
+                    ref={homeButtonRef}
                     type="button"
+                    onClick={handleResetExperience}
                     className="rounded-[20px] px-7 text-3xl font-bold leading-none transition-all w-full h-full"
                     style={{
                       backgroundColor: theme === 'dark' ? COLORS.dark.surface : COLORS.light.bg,
@@ -359,7 +360,7 @@ const InvestaNewsAppContent: React.FC = () => {
                       minHeight: '76px',
                       textAlign: 'center',
                     }}
-                    aria-label="InvestaNews home title"
+                    aria-label="Restart intro flow"
                   >
                     <span style={{ color: theme === 'dark' ? COLORS.dark.text : undefined }}>Investa</span>
                     <span
