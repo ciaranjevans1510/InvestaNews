@@ -1,12 +1,18 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Building2, ChevronLeft, ChevronRight, CircleDollarSign, Heart, Info, X } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
-import { Card, Button, Badge } from '../ui/Basic';
-import { getSupabaseClient } from '../../../lib/supabase/client';
-import { COLORS, SHADOW_STYLES } from '../../utils/colors';
+import { Card, Button } from '../ui/Basic';
+import { COLORS } from '../../utils/colors';
+import {
+  fetchCategoryCompanies,
+  mapDirectoryCompany,
+  resolveDirectoryCompany,
+  type DirectoryCategory,
+  type StockDirectoryCompany,
+} from '../../../lib/stockDirectory';
 import type { Stock } from '../../types';
 
 interface StockDetailsScreenProps {
@@ -20,7 +26,7 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
   const { theme } = useTheme();
   const { addFavourite, isFavourite, canAddFavourite } = useAppContext();
   const isDark = theme === 'dark';
-  const [dbStock, setDbStock] = useState<any | null>(null);
+  const [dbStock, setDbStock] = useState<StockDirectoryCompany | null>(null);
   const [relatedStocks, setRelatedStocks] = useState<Stock[]>([]);
   
   const bgColor = isDark ? COLORS.dark.bg : COLORS.light.bg;
@@ -34,20 +40,11 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
     let isMounted = true;
 
     const loadStockDetails = async () => {
-      const supabase = getSupabaseClient();
       try {
-        const { data } = await supabase
-          .from('stocks')
-          .select('id, ticker, company_name, sector, industry, market_cap, description, website_url')
-          .ilike('ticker', stock.symbol)
-          .limit(1)
-          .maybeSingle();
-
-        if (isMounted && data) {
-          setDbStock(data);
-        }
-      } catch {
-        // Keep fallback values from selected stock payload.
+        const company = await resolveDirectoryCompany(stock);
+        if (isMounted) setDbStock(company);
+      } catch (error) {
+        console.error('Failed to load company details:', error);
       }
     };
 
@@ -56,43 +53,41 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
     return () => {
       isMounted = false;
     };
-  }, [stock.symbol]);
+  }, [stock]);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadRelatedStocks = async () => {
-      const activeSector = (dbStock?.sector || stock.sector || '').toString();
-      if (!activeSector) return;
+      const category: DirectoryCategory | null = dbStock?.category_id || dbStock?.category_slug
+        ? {
+            id: dbStock.category_id,
+            slug: dbStock.category_slug,
+            name: dbStock.category_name || '',
+            kind: 'subcategory',
+            parentName: dbStock.parent_category_name || undefined,
+          }
+        : dbStock?.parent_category_id || dbStock?.parent_category_slug
+          ? {
+              id: dbStock.parent_category_id,
+              slug: dbStock.parent_category_slug,
+              name: dbStock.parent_category_name || '',
+              kind: 'parent',
+            }
+          : null;
+      if (!category) {
+        setRelatedStocks([stock]);
+        return;
+      }
 
-      const supabase = getSupabaseClient();
       try {
-        const { data, error } = await supabase
-          .from('stocks')
-          .select('id, ticker, company_name, sector, industry, market_cap, description, website_url')
-          .eq('sector', activeSector)
-          .limit(20);
-
-        if (!error && data && data.length > 0 && isMounted) {
-          const mapped: Stock[] = data.map((row: any) => ({
-            id: String(row.id ?? row.ticker),
-            symbol: String(row.ticker ?? '').toUpperCase(),
-            company: String(row.company_name ?? '').trim() || 'Unknown company',
-            price: Number(row.price ?? 0),
-            change: Number(row.change ?? 0),
-            percentChange: Number(row.percent_change ?? 0),
-            sector: String(row.sector ?? activeSector),
-            sectorColor: stock.sectorColor,
-            industry: row.industry ? String(row.industry) : undefined,
-            marketCap: row.market_cap ?? undefined,
-            description: row.description ? String(row.description) : undefined,
-            infoUrl: row.website_url ? String(row.website_url) : undefined,
-          }));
-          setRelatedStocks(mapped);
+        const rows = await fetchCategoryCompanies(category, 0, 20);
+        if (isMounted && rows.length > 0) {
+          setRelatedStocks(rows.map(mapDirectoryCompany));
           return;
         }
-      } catch {
-        // Keep fallback when query fails.
+      } catch (error) {
+        console.error('Failed to load related companies:', error);
       }
 
       if (!isMounted) return;
@@ -104,80 +99,29 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
     return () => {
       isMounted = false;
     };
-  }, [dbStock?.sector, stock]);
+  }, [
+    dbStock?.category_id,
+    dbStock?.category_name,
+    dbStock?.category_slug,
+    dbStock?.parent_category_id,
+    dbStock?.parent_category_name,
+    dbStock?.parent_category_slug,
+    stock,
+  ]);
 
-  const ticker = useMemo(() => {
-    return String(dbStock?.ticker ?? stock.symbol).toUpperCase();
-  }, [dbStock, stock.symbol]);
+  const tickers = useMemo(() => (
+    dbStock?.tickers ?? stock.tickers ?? (stock.symbol ? [stock.symbol] : [])
+  ), [dbStock, stock.tickers, stock.symbol]);
 
   const companyName = useMemo(() => {
-    return String(dbStock?.company_name ?? stock.company);
-  }, [dbStock, stock.company]);
+    return dbStock?.company_name?.trim() || stock.company;
+  }, [dbStock?.company_name, stock.company]);
 
-  const industry = useMemo(() => {
-    return (
-      dbStock?.industry ||
-      dbStock?.sub_industry ||
-      stock.industry ||
-      stock.sector ||
-      'General'
-    );
-  }, [dbStock, stock.industry, stock.sector]);
-
-  const marketCapRaw = useMemo(() => {
-    return (
-      dbStock?.market_cap ??
-      dbStock?.market_capitalization ??
-      dbStock?.mkt_cap ??
-      stock.marketCap ??
-      null
-    );
-  }, [dbStock, stock.marketCap]);
-
-  const marketCapText = useMemo(() => {
-    const parsed = Number(marketCapRaw);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      if (parsed >= 1_000_000_000_000) return `$${(parsed / 1_000_000_000_000).toFixed(1)}T`;
-      if (parsed >= 1_000_000_000) return `$${(parsed / 1_000_000_000).toFixed(0)}B`;
-      if (parsed >= 1_000_000) return `$${(parsed / 1_000_000).toFixed(0)}M`;
-      return `$${parsed.toLocaleString()}`;
-    }
-    if (typeof marketCapRaw === 'string' && marketCapRaw.trim()) {
-      return marketCapRaw.trim();
-    }
-    return 'N/A';
-  }, [marketCapRaw]);
-
-  const capCategory = useMemo(() => {
-    if (dbStock?.market_cap_category) return String(dbStock.market_cap_category);
-    if (dbStock?.cap_category) return String(dbStock.cap_category);
-    const parsed = Number(marketCapRaw);
-    if (!Number.isFinite(parsed) || parsed <= 0) return 'Unknown';
-    if (parsed >= 200_000_000_000) return 'Mega Cap';
-    if (parsed >= 10_000_000_000) return 'Large Cap';
-    if (parsed >= 2_000_000_000) return 'Mid Cap';
-    return 'Small Cap';
-  }, [dbStock, marketCapRaw]);
+  const categoryName = dbStock?.category_name || dbStock?.parent_category_name || stock.sector;
 
   const description = useMemo(() => {
-    return (
-      dbStock?.description ||
-      dbStock?.company_description ||
-      dbStock?.business_summary ||
-      dbStock?.summary ||
-      stock.description ||
-      `${companyName} operates in the ${String(industry).toLowerCase()} space, with market relevance across its sector.`
-    );
-  }, [dbStock, stock.description, companyName, industry]);
-
-  const infoUrl = useMemo(() => {
-    return dbStock?.website_url || dbStock?.info_url || stock.infoUrl || null;
-  }, [dbStock, stock.infoUrl]);
-
-  const openMoreInfo = () => {
-    if (!infoUrl) return;
-    window.open(String(infoUrl), '_blank', 'noopener,noreferrer');
-  };
+    return dbStock?.description || stock.description || `${companyName} company profile.`;
+  }, [dbStock?.description, stock.description, companyName]);
 
   const navigationStocks = useMemo(() => {
     if (stockList && stockList.length > 0) return stockList;
@@ -188,9 +132,11 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
   const currentStockIndex = useMemo(() => {
     const indexById = navigationStocks.findIndex((item) => item.id === stock.id);
     if (indexById >= 0) return indexById;
-    const indexBySymbol = navigationStocks.findIndex((item) => item.symbol === ticker);
+    const indexBySymbol = stock.symbol
+      ? navigationStocks.findIndex((item) => item.symbol === stock.symbol)
+      : -1;
     return indexBySymbol >= 0 ? indexBySymbol : 0;
-  }, [navigationStocks, stock.id, ticker]);
+  }, [navigationStocks, stock.id, stock.symbol]);
 
   const dotStocks = useMemo(() => {
     const base = navigationStocks;
@@ -257,13 +203,13 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
           
           <div className="flex items-center gap-1.5">
             {dotStocks.map((dotStock) => {
-              const isActive = dotStock.symbol === ticker;
+              const isActive = dotStock.id === stock.id;
               return (
                 <button
                   key={dotStock.id}
                   onClick={() => handleSelectDotStock(dotStock)}
                   className="rounded-full transition-all"
-                  aria-label={`Switch to ${dotStock.symbol}`}
+                  aria-label={`Switch to ${dotStock.company}`}
                   style={{
                     width: isActive ? '28px' : '8px',
                     height: '8px',
@@ -293,11 +239,11 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
       {/* Main Stock Card */}
       <Card className="mb-6">
         <div className="mb-4">
-          <div className="text-5xl font-bold leading-tight" style={{ color: textColor }}>
-            {ticker}
-          </div>
-          <p className="text-lg mt-2" style={{ color: textSecondary }}>
+          <div className="text-3xl font-bold leading-tight" style={{ color: textColor }}>
             {companyName}
+          </div>
+          <p className="text-base mt-2" style={{ color: textSecondary }}>
+            {tickers.length ? tickers.join(' · ') : 'No ticker available'}
           </p>
         </div>
 
@@ -309,30 +255,25 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
             </div>
             <div className="flex-1">
               <p className="text-xs font-medium" style={{ color: textSecondary }}>
-                Industry
+                Category
               </p>
               <p className="text-lg font-semibold mt-1" style={{ color: textColor }}>
-                {industry}
+                {categoryName || 'Not classified'}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
             <div className="mt-0.5">
-              <CircleDollarSign size={20} style={{ color: COLORS.primary }} />
+              <Building2 size={20} style={{ color: COLORS.primary }} />
             </div>
             <div className="flex-1">
               <p className="text-xs font-medium" style={{ color: textSecondary }}>
-                Market Cap
+                Country
               </p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <p className="text-lg font-semibold" style={{ color: textColor }}>
-                  {marketCapText}
-                </p>
-                <Badge variant="secondary" size="sm">
-                  {capCategory}
-                </Badge>
-              </div>
+              <p className="text-lg font-semibold mt-1" style={{ color: textColor }}>
+                {dbStock?.country || stock.country || 'Not available'}
+              </p>
             </div>
           </div>
         </div>
@@ -367,16 +308,6 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
         </Button>
       </div>
 
-      <Button
-        onClick={openMoreInfo}
-        disabled={!infoUrl}
-        variant="secondary"
-        className="w-full flex items-center justify-center gap-2 mb-6"
-      >
-        <Info size={18} />
-        More Info
-      </Button>
-
       {/* Footer Text */}
       <p className="text-center text-xs" style={{ color: textSecondary }}>
         Informational only. Content is shaped by your activity.
@@ -384,4 +315,3 @@ export const StockDetailsScreen: React.FC<StockDetailsScreenProps> = ({ stock, s
     </div>
   );
 };
-

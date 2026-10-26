@@ -10,6 +10,13 @@ interface StoryViewerStory {
   summary?: string | null;
 }
 
+interface RelatedStock {
+  id: string;
+  tickers: string[];
+  company_name: string;
+  relationship_type?: string | null;
+}
+
 interface StoryViewerSlide {
   id: string | number;
   slide_order: number;
@@ -17,6 +24,8 @@ interface StoryViewerSlide {
   body?: string | null;
   cta_text?: string | null;
   cta_url?: string | null;
+  type?: 'editorial' | 'related-stocks';
+  relatedStocks?: RelatedStock[];
 }
 
 interface StoryViewerImpact {
@@ -27,7 +36,9 @@ interface StoryViewerImpact {
 interface StoryViewerProps {
   story: StoryViewerStory;
   slides: StoryViewerSlide[];
+  relatedStocks?: RelatedStock[];
   impact?: StoryViewerImpact | null;
+  onOpenStock?: (stock: RelatedStock) => void;
 }
 
 const labelForSlide = (slideOrder: number) => {
@@ -40,12 +51,32 @@ const labelForSlide = (slideOrder: number) => {
   return `Slide ${slideOrder}`;
 };
 
-export default function StoryViewer({ story, slides, impact }: StoryViewerProps) {
+export default function StoryViewer({ story, slides, relatedStocks = [], impact, onOpenStock }: StoryViewerProps) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
-  const currentSlide = slides[currentIndex];
+  const allSlides = useMemo(() => {
+    const editorialSlides = slides.map((slide) => ({ ...slide, type: 'editorial' as const }));
+
+    if (!relatedStocks.length) {
+      return editorialSlides;
+    }
+
+    return [
+      ...editorialSlides,
+      {
+        id: 'related-stocks-final',
+        slide_order: editorialSlides.length + 1,
+        headline: 'Related Stocks',
+        body: 'Companies connected to this story.',
+        type: 'related-stocks' as const,
+        relatedStocks,
+      },
+    ];
+  }, [relatedStocks, slides]);
+
+  const currentSlide = allSlides[currentIndex] ?? allSlides[0];
 
   const impactLabel = useMemo(() => {
     if (impact?.movePercent === null || impact?.movePercent === undefined) {
@@ -56,11 +87,11 @@ export default function StoryViewer({ story, slides, impact }: StoryViewerProps)
   }, [impact]);
 
   const timeLabel = useMemo(() => {
-    const remaining = slides.length - currentIndex - 1;
+    const remaining = allSlides.length - currentIndex - 1;
     if (remaining <= 0) return 'End of story';
     if (remaining === 1) return '1 slide left';
     return `${remaining} slides left`;
-  }, [currentIndex, slides.length]);
+  }, [allSlides.length, currentIndex]);
 
   const goBack = () => {
     if (window.history.length > 1) {
@@ -71,7 +102,7 @@ export default function StoryViewer({ story, slides, impact }: StoryViewerProps)
   };
 
   const goNext = () => {
-    setCurrentIndex((prev) => Math.min(prev + 1, slides.length - 1));
+    setCurrentIndex((prev) => Math.min(prev + 1, allSlides.length - 1));
   };
 
   const goPrev = () => {
@@ -98,9 +129,18 @@ export default function StoryViewer({ story, slides, impact }: StoryViewerProps)
   };
 
   const handleCardClick = () => {
-    if (currentIndex < slides.length - 1) {
+    if (currentIndex < allSlides.length - 1) {
       goNext();
     }
+  };
+
+  const handleOpenRelatedStock = (stock: RelatedStock) => {
+    if (onOpenStock) {
+      onOpenStock(stock);
+      return;
+    }
+
+    router.push(`/?stock_id=${encodeURIComponent(stock.id)}`);
   };
 
   return (
@@ -123,7 +163,7 @@ export default function StoryViewer({ story, slides, impact }: StoryViewerProps)
         </div>
 
         <div className="mt-5 flex gap-1.5">
-          {slides.map((slide) => (
+          {allSlides.map((slide) => (
             <div
               key={slide.id}
               className="h-1 flex-1 rounded-full"
@@ -147,28 +187,77 @@ export default function StoryViewer({ story, slides, impact }: StoryViewerProps)
           onClick={handleCardClick}
         >
           <div className="inline-flex rounded-full bg-white/18 px-6 py-3 text-sm text-white/95 backdrop-blur-sm">
-            {labelForSlide(currentSlide.slide_order)}
+            {currentSlide.type === 'related-stocks' ? 'Related Stocks' : labelForSlide(currentSlide.slide_order)}
           </div>
 
           <h1 className="mt-10 text-5xl font-semibold leading-[1.08] tracking-tight">
             {currentSlide.headline || story.title}
           </h1>
 
-          <p className="mt-8 text-2xl leading-relaxed text-white/96">
-            {currentSlide.body || story.summary || story.subtitle || 'No story text available.'}
-          </p>
+          {currentSlide.type === 'related-stocks' ? (
+            <div className="mt-8 space-y-3">
+              {currentSlide.relatedStocks?.map((stock) => {
+                const relationship = (stock.relationship_type ?? '').toLowerCase();
+                const isPrimary = relationship === 'primary';
+                const isSecondary = relationship === 'secondary';
 
-          {currentSlide.cta_text && currentSlide.cta_url && (
-            <a
-              href={currentSlide.cta_url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-white/18 px-5 py-3 text-sm text-white"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {currentSlide.cta_text}
-              <ArrowUpRight size={16} />
-            </a>
+                return (
+                  <button
+                    key={stock.id}
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleOpenRelatedStock(stock);
+                    }}
+                    className="w-full rounded-[1.5rem] border border-white/25 bg-white/10 px-4 py-4 text-left shadow-[0_12px_28px_rgba(20,33,80,0.12)] transition-all duration-200 hover:bg-white/14 hover:border-white/35 active:scale-[0.99]"
+                    style={{
+                      boxShadow: '0 12px 28px rgba(20, 33, 80, 0.12)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[1.65rem] font-semibold leading-none tracking-tight text-white">
+                          {stock.company_name}
+                        </div>
+                        <div className="mt-2 text-base leading-snug text-white/80">
+                          {stock.tickers.length ? stock.tickers.join(' · ') : 'No ticker available'}
+                        </div>
+                      </div>
+
+                      <div
+                        className="shrink-0 rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em]"
+                        style={{
+                          backgroundColor: isPrimary ? 'rgba(136, 122, 230, 0.24)' : 'rgba(120, 158, 224, 0.22)',
+                          borderColor: isPrimary ? 'rgba(198, 190, 255, 0.45)' : 'rgba(182, 211, 255, 0.42)',
+                          color: isPrimary ? '#f1ebff' : '#eaf3ff',
+                        }}
+                      >
+                        {relationship || 'related'}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <p className="mt-8 text-2xl leading-relaxed text-white/96">
+                {currentSlide.body || story.summary || story.subtitle || 'No story text available.'}
+              </p>
+
+              {currentSlide.cta_text && currentSlide.cta_url && (
+                <a
+                  href={currentSlide.cta_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-8 inline-flex items-center gap-2 rounded-full bg-white/18 px-5 py-3 text-sm text-white"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {currentSlide.cta_text}
+                  <ArrowUpRight size={16} />
+                </a>
+              )}
+            </>
           )}
 
           <div className="mt-16 flex items-center gap-6 text-xl text-white/92">
@@ -191,7 +280,7 @@ export default function StoryViewer({ story, slides, impact }: StoryViewerProps)
           </button>
           <button
             onClick={goNext}
-            disabled={currentIndex === slides.length - 1}
+            disabled={currentIndex === allSlides.length - 1}
             className="rounded-full px-5 py-3 text-sm text-white/90 disabled:opacity-35"
             style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}
           >

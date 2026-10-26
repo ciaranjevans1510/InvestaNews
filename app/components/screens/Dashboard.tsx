@@ -127,10 +127,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const bgColor = isDark ? COLORS.dark.bg : COLORS.light.bg;
   const textSecondary = isDark ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
   const surfaceColor = isDark ? COLORS.dark.surface : COLORS.light.surface;
-  const preferredTickerQuery = favourites
-    .map((favorite) => favorite.stock.symbol)
-    .filter(Boolean)
-    .join(',');
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const quickActionsRef = React.useRef<HTMLDivElement | null>(null);
   const favouritesGridRef = React.useRef<HTMLDivElement | null>(null);
@@ -247,9 +243,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
     const loadStories = async () => {
       try {
-        const endpoint = preferredTickerQuery
-          ? `/api/stories?tickers=${encodeURIComponent(preferredTickerQuery)}`
-          : '/api/stories';
+        const endpoint = '/api/stories';
         const response = await fetch(endpoint, {
           cache: 'no-store',
         });
@@ -272,7 +266,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [preferredTickerQuery]);
+  }, []);
 
   const openStory = (slug: string) => {
     if (!slug) {
@@ -536,8 +530,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {favoriteSlots.map((favorite, index) => {
           if (favorite) {
             const stock = favorite.stock;
-            const logoUrl = getStockLogoUrl(stock.symbol);
-            const logoFailed = failedLogos[stock.symbol];
+            const logoUrl = stock.image || getStockLogoUrl(stock.symbol ?? '');
+            const logoFailed = failedLogos[stock.id];
+            const tickerLabel = stock.tickers?.length
+              ? stock.tickers.join(' · ')
+              : stock.symbol || '';
             const showLogo = Boolean(logoUrl && !logoFailed);
             
             return (
@@ -562,7 +559,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                     backgroundColor: isDark ? 'rgba(0, 0, 0, 0.28)' : 'rgba(15, 42, 81, 0.12)',
                     color: isDark ? 'white' : '#12345f',
                   }}
-                  aria-label={`Remove ${stock.symbol} from favourites`}
+                  aria-label={`Remove ${stock.company} from favourites`}
                 >
                   <X size={14} />
                 </button>
@@ -585,21 +582,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                             className="w-7 h-7 object-contain"
                             style={{ filter: isDark ? 'brightness(1.03) contrast(1.08)' : 'saturate(0.88) contrast(0.98)' }}
                             onError={() => {
-                              setFailedLogos((prev) => ({ ...prev, [stock.symbol]: true }));
+                              setFailedLogos((prev) => ({ ...prev, [stock.id]: true }));
                             }}
                           />
                         ) : (
                           <span className="text-xs font-semibold tracking-wide">
-                            {getStockLogoFallback(stock.symbol)}
+                            {getStockLogoFallback(stock.symbol || stock.company)}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="text-2xl font-bold leading-tight" style={{ color: isDark ? '#f8fbff' : '#0f2a51' }}>
-                      {stock.symbol}
+                      {stock.company}
                     </div>
                     <div className="text-xs mt-2 leading-snug" style={{ color: isDark ? 'rgba(255,255,255,0.8)' : '#31527f' }}>
-                      {stock.company}
+                      {tickerLabel || stock.company}
                     </div>
                   </div>
                   <div>

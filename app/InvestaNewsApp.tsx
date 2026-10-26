@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Moon, Sun, User, ChevronRight } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useTheme } from './contexts/ThemeContext';
 import { AppProvider } from './contexts/AppContext';
@@ -25,17 +26,24 @@ import { SignUpScreen } from './components/screens/SignUp';
 import { BetaScreen } from './components/screens/Beta';
 import { InstallTutorialScreen } from './components/screens/InstallTutorial';
 import { COLORS, SHADOW_STYLES } from './utils/colors';
+import {
+  fetchDirectoryCompanyById,
+  mapDirectoryCompany,
+  resolveDirectoryCompanyByTicker,
+  type DirectoryCategory,
+} from '../lib/stockDirectory';
 import type { Stock } from './types';
 
 type NavigationTab = 'home' | 'discover' | 'search' | 'rewards' | 'profile';
 type Screen = 'welcome' | 'sign-in' | 'sign-up' | 'get-started' | 'onboarding' | 'quiz' | 'stories' | 'learning' | 'category-stocks' | 'stock-details' | 'more-tiles' | 'beta' | 'install-tutorial' | NavigationTab;
 
 const InvestaNewsAppContent: React.FC = () => {
+  const searchParams = useSearchParams();
   const { session, authLoading, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
-  const [selectedSector, setSelectedSector] = useState('Technology');
+  const [selectedCategory, setSelectedCategory] = useState<DirectoryCategory | null>(null);
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [stockNavigationList, setStockNavigationList] = useState<Stock[]>([]);
   const [startHomeTour, setStartHomeTour] = useState(false);
@@ -43,6 +51,7 @@ const InvestaNewsAppContent: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   // Track previously seen user ID so token refreshes don't reset navigation
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
+  const processedStockLinkRef = useRef<string | null>(null);
   const accountButtonRef = useRef<HTMLButtonElement | null>(null);
   const homeButtonRef = useRef<HTMLButtonElement | null>(null);
   const betaButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -83,6 +92,57 @@ const InvestaNewsAppContent: React.FC = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [currentScreen]);
+
+  useEffect(() => {
+    const stockId = searchParams.get('stock_id');
+    const ticker = searchParams.get('stock');
+    if (!stockId && !ticker) {
+      processedStockLinkRef.current = null;
+      return;
+    }
+    const linkKey = stockId ? `id:${stockId}` : `ticker:${ticker}`;
+    if (processedStockLinkRef.current === linkKey) return;
+    processedStockLinkRef.current = linkKey;
+
+    let isMounted = true;
+
+    const loadSelectedStock = async () => {
+      try {
+        const directoryCompany = stockId
+          ? await fetchDirectoryCompanyById(stockId)
+          : await resolveDirectoryCompanyByTicker(ticker ?? '');
+        if (!isMounted) return;
+        if (!directoryCompany) {
+          console.warn(stockId
+            ? `No company found for stock link "${stockId}".`
+            : `No unique company found for ticker link "${ticker}".`);
+          return;
+        }
+
+        const mappedStock = mapDirectoryCompany(directoryCompany);
+        setSelectedStock(mappedStock);
+        setStockNavigationList([mappedStock]);
+        setScreenHistory((previous) => [...previous, currentScreen]);
+        setCurrentScreen('stock-details');
+
+        const nextSearchParams = new URLSearchParams(window.location.search);
+        nextSearchParams.delete('stock_id');
+        nextSearchParams.delete('stock');
+        const nextUrl = nextSearchParams.toString()
+          ? `${window.location.pathname}?${nextSearchParams.toString()}`
+          : window.location.pathname;
+        window.history.replaceState({}, '', nextUrl);
+      } catch (error) {
+        console.error('Failed to resolve stock link:', error);
+      }
+    };
+
+    loadSelectedStock();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [searchParams, currentScreen]);
 
   if (!mounted) return null;
 
@@ -171,8 +231,8 @@ const InvestaNewsAppContent: React.FC = () => {
     openScreen(tab);
   };
 
-  const handleSelectCategory = (category: string) => {
-    setSelectedSector(category);
+  const handleSelectCategory = (category: DirectoryCategory) => {
+    setSelectedCategory(category);
     openScreen('category-stocks');
   };
 
@@ -248,13 +308,17 @@ const InvestaNewsAppContent: React.FC = () => {
           <DiscoveryScreen
             onNavigate={navigate}
             onSelectCategory={handleSelectCategory}
+            onSelectStock={handleSelectStock}
             onBack={() => goBack('home')}
           />
         );
       case 'category-stocks':
+        if (!selectedCategory) {
+          return <DiscoveryScreen onNavigate={navigate} onSelectCategory={handleSelectCategory} onSelectStock={handleSelectStock} onBack={() => goBack('home')} />;
+        }
         return (
           <CategoryStocksScreen
-            sector={selectedSector}
+            category={selectedCategory}
             onBack={() => goBack('discover')}
             onNavigate={navigate}
             onSelectStock={handleSelectStock}

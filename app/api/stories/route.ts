@@ -6,7 +6,8 @@ interface StoryPreview {
   slug: string;
   title: string;
   subtitle?: string;
-  sector?: string;
+  primary_sector?: string;
+  sectors?: string[];
   status?: string;
 }
 
@@ -18,32 +19,35 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const status = normalizeQueryParam(searchParams.get('status')) || 'published';
-    const sector = normalizeQueryParam(searchParams.get('sector'));
+    const primarySector = normalizeQueryParam(searchParams.get('primary_sector'));
     const supabase = createSupabaseClient();
 
     let storyRequest = supabase
       .from('stories')
-      .select('id, slug, title, subtitle, sector, status')
-      .limit(8);
+      .select('id, slug, title, subtitle, primary_sector, sectors, status')
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (status) {
       storyRequest = storyRequest.eq('status', status);
     }
 
-    if (sector) {
-      storyRequest = storyRequest.eq('sector', sector);
+    if (primarySector) {
+      storyRequest = storyRequest.eq('primary_sector', primarySector);
     }
 
     const { data, error } = await storyRequest;
 
     if (error) {
+      console.error('Supabase stories query failed:', error);
       return NextResponse.json({ stories: [] }, { status: 200 });
     }
 
     const stories = (data ?? []) as StoryPreview[];
 
     return NextResponse.json({ stories }, { status: 200 });
-  } catch {
+  } catch (error) {
+    console.error('Stories API error:', error);
     return NextResponse.json({ stories: [] }, { status: 200 });
   }
 }

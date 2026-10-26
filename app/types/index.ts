@@ -2,7 +2,8 @@ export type Theme = 'light' | 'dark';
 
 export interface Stock {
   id: string;
-  symbol: string;
+  symbol?: string;
+  tickers?: string[];
   company: string;
   price: number;
   change: number; // percentage
@@ -15,6 +16,14 @@ export interface Stock {
   marketCapLabel?: string;
   description?: string;
   infoUrl?: string;
+  country?: string;
+  categoryId?: string;
+  categoryName?: string;
+  categorySlug?: string;
+  parentCategoryId?: string;
+  parentCategoryName?: string;
+  parentCategorySlug?: string;
+  isTop1000?: boolean;
 }
 
 export interface Favourite {

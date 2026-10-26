@@ -54,7 +54,7 @@ export const StockCard: React.FC<StockCardProps> = ({
       <Card className={`${sizeStyles[size]} flex items-center justify-between cursor-pointer hover:scale-105 transition-transform`}>
         <div className="flex-1">
           <div className="font-semibold" style={{ color: textColor }}>
-            {stock.symbol}
+            {stock.symbol || stock.company}
           </div>
           <div className="text-sm" style={{ color: textSecondary }}>
             {stock.company}
@@ -81,7 +81,7 @@ export const StockCard: React.FC<StockCardProps> = ({
       <div className="flex justify-between items-start mb-3">
         <div>
           <div className="font-bold text-lg" style={{ color: textColor }}>
-            {stock.symbol}
+            {stock.symbol || stock.company}
           </div>
           <div className="text-sm" style={{ color: textSecondary }}>
             {stock.company}

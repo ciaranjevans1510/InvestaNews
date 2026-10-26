@@ -5,8 +5,11 @@ import { ArrowLeft, Search as SearchIcon } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppContext } from '../../contexts/AppContext';
 import { COLORS } from '../../utils/colors';
-import { MOCK_STOCKS } from '../../utils/mockData';
-import { getSupabaseClient } from '../../../lib/supabase/client';
+import {
+  fetchDirectoryPage,
+  mapDirectoryCompany,
+  searchDirectoryCompanies,
+} from '../../../lib/stockDirectory';
 import type { Stock } from '../../types';
 
 interface SearchScreenProps {
@@ -29,8 +32,11 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [dbResults, setDbResults] = useState<Stock[]>([]);
+  const [recommendedStocks, setRecommendedStocks] = useState<Stock[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [usedFallbackResults, setUsedFallbackResults] = useState(false);
+  const [hasMoreResults, setHasMoreResults] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const searchSurfaceColor = isDark ? '#1f2942' : '#eef2fb';
   const searchBorderColor = isSearchFocused
     ? '#6C63FF'
@@ -41,83 +47,40 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
 
-  const fallbackSearch = (query: string) => {
-    const normalized = query.trim().toLowerCase();
-
-    return MOCK_STOCKS.filter(
-      (stock) =>
-        stock.symbol.toLowerCase().includes(normalized) ||
-        stock.company.toLowerCase().includes(normalized),
-    ).slice(0, 8);
-  };
-
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!searchQuery.trim()) {
       setDbResults([]);
       setIsSearching(false);
-      setUsedFallbackResults(false);
+      setHasMoreResults(false);
+      setSearchError(null);
       return;
     }
 
     const currentRequestId = requestIdRef.current + 1;
     requestIdRef.current = currentRequestId;
     setIsSearching(true);
+    setSearchError(null);
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const supabase = getSupabaseClient();
         const q = searchQuery.trim();
-        const cols = 'id, ticker, company_name, sector';
-        const { data, error } = await supabase
-          .from('stocks')
-          .select(cols)
-          .or(`ticker.ilike.%${q}%,company_name.ilike.%${q}%`)
-          .limit(8);
+        const rows = await searchDirectoryCompanies(q, 0, 25);
 
         if (requestIdRef.current !== currentRequestId) {
           return;
         }
 
-        if (error) {
-          setDbResults(fallbackSearch(q));
-          setUsedFallbackResults(true);
-          return;
-        }
-
-        if (data && data.length > 0) {
-          setDbResults(
-            data.map((row: any) => ({
-              id: String(row.id ?? row.ticker),
-              symbol: String(row.ticker ?? '').toUpperCase(),
-              company: String(row.company_name ?? '').trim() || 'Unknown company',
-              price: 0,
-              change: 0,
-              percentChange: 0,
-              sector: String(row.sector ?? ''),
-              sectorColor: '#8b5cf6',
-            })),
-          );
-          setUsedFallbackResults(false);
-          return;
-        }
-
-        const seen = new Set<string>();
-        const merged = fallbackSearch(q).filter((row) => {
-          if (seen.has(row.id)) return false;
-          seen.add(row.id);
-          return true;
-        });
-
-        setDbResults(merged);
-        setUsedFallbackResults(true);
-      } catch {
+        setDbResults(rows.map(mapDirectoryCompany));
+        setHasMoreResults(rows.length === 25);
+      } catch (error) {
         if (requestIdRef.current !== currentRequestId) {
           return;
         }
-
-        setDbResults(fallbackSearch(searchQuery));
-        setUsedFallbackResults(true);
+        console.error('Company search failed:', error);
+        setDbResults([]);
+        setHasMoreResults(false);
+        setSearchError(error instanceof Error ? error.message : String(error));
       } finally {
         if (requestIdRef.current === currentRequestId) {
           setIsSearching(false);
@@ -131,15 +94,24 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
   }, [searchQuery]);
 
   useEffect(() => {
+    let isMounted = true;
+    fetchDirectoryPage(0, 4)
+      .then((rows) => {
+        if (isMounted) setRecommendedStocks(rows.map(mapDirectoryCompany));
+      })
+      .catch((error) => {
+        console.error('Failed to load featured companies:', error);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (selectedStock && searchQuery.trim().toLowerCase() !== selectedStock.company.toLowerCase()) {
       setSelectedStock(null);
     }
   }, [searchQuery, selectedStock]);
-
-  const recommendedSymbols = ['AAPL', 'TSLA', 'NVDA', 'MSFT'];
-  const recommendedStocks = MOCK_STOCKS.filter((stock) =>
-    recommendedSymbols.includes(stock.symbol),
-  );
 
   const showDropdown = Boolean(searchQuery) && !selectedStock;
   const actionStock = selectedStock;
@@ -148,8 +120,23 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
   const handleViewStock = () => {
     if (!actionStock) return;
     if (onSelectStock) {
-      const adjacentStocks = dbResults.length > 0 ? dbResults : recommendedStocks;
-      onSelectStock(actionStock, adjacentStocks);
+      onSelectStock(actionStock, dbResults.length > 0 ? dbResults : [actionStock]);
+    }
+  };
+
+  const loadMoreResults = async () => {
+    if (isLoadingMore || !searchQuery.trim()) return;
+    setIsLoadingMore(true);
+    try {
+      const rows = await searchDirectoryCompanies(searchQuery.trim(), dbResults.length, 25);
+      const mapped = rows.map(mapDirectoryCompany);
+      setDbResults((current) => [...current, ...mapped]);
+      setHasMoreResults(rows.length === 25);
+    } catch (error) {
+      console.error('Failed to load more company search results:', error);
+      setSearchError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -246,16 +233,18 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
                   >
                     <div className="min-w-0">
                       <div className="text-lg font-semibold" style={{ color: textColor }}>
-                        {resultStock.symbol}
+                        {resultStock.company}
                       </div>
                       <div
                         className="text-sm truncate"
                         style={{ color: textSecondary }}
                       >
-                        {resultStock.company}
+                        {resultStock.tickers?.length
+                          ? resultStock.tickers.join(' · ')
+                          : 'No ticker available'}
                       </div>
                     </div>
-                    {!usedFallbackResults && resultStock.sector && (
+                    {resultStock.sector && (
                       <div className="ml-3 text-xs" style={{ color: textSecondary }}>
                         {resultStock.sector}
                       </div>
@@ -265,18 +254,32 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
               </div>
             )}
 
+            {!isSearching && hasMoreResults && (
+              <button
+                type="button"
+                onClick={loadMoreResults}
+                disabled={isLoadingMore}
+                className="w-full px-4 py-3 text-sm disabled:opacity-60"
+                style={{ color: textSecondary }}
+              >
+                {isLoadingMore ? 'Loading...' : 'Load more results'}
+              </button>
+            )}
+
             {!isSearching && dbResults.length === 0 && (
               <div className="px-4 py-3 text-sm" style={{ color: textSecondary }}>
-                No stocks found for &quot;{searchQuery}&quot;.
+                {searchError
+                  ? `Search failed: ${searchError}`
+                  : `No companies found for "${searchQuery}".`}
               </div>
             )}
           </div>
         )}
       </div>
 
-      {searchQuery && usedFallbackResults && dbResults.length > 0 && (
+      {searchQuery && searchError && dbResults.length > 0 && (
         <div className="mt-3 text-xs" style={{ color: textSecondary }}>
-          Showing local fallback results while the public database search returns no visible stock rows.
+          Search failed: {searchError}
         </div>
       )}
 
@@ -335,11 +338,11 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onNavigate, onBack, 
                   </div>
                 </div>
 
-                <div className="text-3xl font-bold mt-4 leading-none" style={{ color: textColor }}>
-                  {stock.symbol}
+                <div className="text-2xl font-bold mt-4 leading-tight" style={{ color: textColor }}>
+                  {stock.company}
                 </div>
                 <div className="text-sm mt-2 leading-snug" style={{ color: textSecondary }}>
-                  {stock.company}
+                  {stock.tickers?.length ? stock.tickers.join(' · ') : 'No ticker available'}
                 </div>
               </button>
             );

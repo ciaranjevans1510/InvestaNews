@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'next/navigation';
 import { COLORS, SHADOW_STYLES } from '../../utils/colors';
-import { MOCK_STORIES } from '../../utils/mockData';
 
 interface StoriesScreenProps {
   onNavigate?: (screen: string) => void;
@@ -18,6 +17,8 @@ interface HomeStory {
   title: string;
   subtitle?: string;
   category?: string;
+  primary_sector?: string;
+  sectors?: string[];
 }
 
 const MARKET_THEMES = [
@@ -43,13 +44,12 @@ const SECTORS = [
   'Crypto',
 ];
 
-const mockStories: HomeStory[] = MOCK_STORIES.map((story) => ({
-  id: story.id,
-  slug: story.slug,
-  title: story.title,
-  subtitle: story.subtitle,
-  category: Math.random() > 0.5 ? MARKET_THEMES[Math.floor(Math.random() * MARKET_THEMES.length)] : SECTORS[Math.floor(Math.random() * SECTORS.length)],
-}));
+const mapStoryCategory = (story: Partial<HomeStory>) => {
+  if (story.category) return story.category;
+  if (story.primary_sector) return story.primary_sector;
+  if (Array.isArray(story.sectors) && story.sectors.length > 0) return story.sectors[0];
+  return undefined;
+};
 
 export const StoriesScreen: React.FC<StoriesScreenProps> = ({ onNavigate, onBack }) => {
   const router = useRouter();
@@ -62,7 +62,43 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({ onNavigate, onBack
   const surfaceColor = isDark ? COLORS.dark.surface : COLORS.light.surface;
 
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [stories, setStories] = useState<HomeStory[]>(mockStories);
+  const [stories, setStories] = useState<HomeStory[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadStories = async () => {
+      try {
+        const response = await fetch('/api/stories', { cache: 'no-store' });
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const apiStories = Array.isArray(payload?.stories) ? payload.stories : [];
+
+        if (!isMounted) return;
+
+        const mappedStories = apiStories.map((story: any) => ({
+          id: String(story.id ?? story.slug ?? crypto.randomUUID()),
+          slug: String(story.slug ?? ''),
+          title: String(story.title ?? 'Untitled story'),
+          subtitle: story.subtitle ? String(story.subtitle) : undefined,
+          category: mapStoryCategory(story),
+          primary_sector: story.primary_sector ? String(story.primary_sector) : undefined,
+          sectors: Array.isArray(story.sectors) ? story.sectors.map((sector: unknown) => String(sector)) : undefined,
+        }));
+
+        setStories(mappedStories);
+      } catch {
+        setStories([]);
+      }
+    };
+
+    loadStories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredStories = activeFilter
     ? stories.filter((story) => story.category === activeFilter)

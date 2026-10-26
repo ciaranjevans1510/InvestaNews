@@ -3,6 +3,21 @@ import { createSupabaseClient } from '../../../lib/supabase/server'
 import { MOCK_STORIES } from '../../utils/mockData'
 import StoryViewer from './StoryViewer'
 
+interface StoryStockLink {
+  story_id: string;
+  stock_id: string;
+  relationship_type: string | null;
+  move_direction: string | null;
+  move_percent: number | null;
+  display_order: number;
+}
+
+interface DirectoryStoryCompany {
+  id: string;
+  company_name: string | null;
+  tickers: string[] | null;
+}
+
 export default async function StoryPage({
   params,
 }: {
@@ -56,27 +71,57 @@ export default async function StoryPage({
   const { data: storyStocks, error: storyStocksError } = await supabase
     .from('story_stocks')
     .select(`
+      story_id,
       relationship_type,
       move_direction,
       move_percent,
       display_order,
-      stocks (
-        ticker,
-        company_name
-      )
+      stock_id
     `)
     .eq('story_id', story.id)
     .order('display_order', { ascending: true })
 
-  const primary = storyStocks?.filter(
-    (s: any) => s.relationship_type === 'primary'
-  )
+  if (storyStocksError) {
+    console.error('Failed to load story company links:', storyStocksError)
+  }
 
-  const secondary = storyStocks?.filter(
-    (s: any) => s.relationship_type === 'secondary'
-  )
+  const storyStockLinks = (storyStocks ?? []) as StoryStockLink[]
+  const stockIds = [...new Set(storyStockLinks.map((entry) => entry.stock_id).filter(Boolean))]
+  const { data: directoryCompanies, error: directoryCompaniesError } = stockIds.length
+    ? await supabase
+        .from('stock_directory')
+        .select('id, company_name, tickers')
+        .in('id', stockIds)
+    : { data: [], error: null }
 
-  const primaryImpact = primary?.[0]
+  if (directoryCompaniesError) {
+    console.error('Failed to load companies for story links:', directoryCompaniesError)
+  }
+
+  const directoryRows = (directoryCompanies ?? []) as DirectoryStoryCompany[]
+  const companiesById = new Map(directoryRows.map((company) => [company.id, company]))
+  const relatedStocks = storyStockLinks
+    .map((entry) => {
+      const company = companiesById.get(entry.stock_id);
+      if (!company) return null;
+
+      return {
+        id: company.id,
+        tickers: company.tickers ?? [],
+        company_name: company.company_name?.trim() || 'Unknown company',
+        relationship_type: entry.relationship_type ?? 'secondary',
+      };
+    })
+    .filter((stock): stock is {
+      id: string;
+      tickers: string[];
+      company_name: string;
+      relationship_type: string;
+    } => Boolean(stock))
+
+  const primaryImpact = storyStockLinks.find(
+    (link) => link.relationship_type === 'primary',
+  )
 
   if (slidesError || !slides || slides.length === 0) {
     return notFound()
@@ -86,6 +131,7 @@ export default async function StoryPage({
     <StoryViewer
       story={story}
       slides={slides}
+      relatedStocks={relatedStocks}
       impact={{
         moveDirection: primaryImpact?.move_direction ?? null,
         movePercent: primaryImpact?.move_percent ?? null,

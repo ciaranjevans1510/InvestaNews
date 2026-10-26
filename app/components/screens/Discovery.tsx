@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Sparkles,
@@ -16,43 +16,25 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { COLORS } from '../../utils/colors';
-import { MOCK_STOCKS } from '../../utils/mockData';
-import { getSupabaseClient } from '../../../lib/supabase/client';
+import {
+  fetchDirectoryCategories,
+  fetchDirectoryPage,
+  mapDirectoryCompany,
+  type DirectoryCategory,
+} from '../../../lib/stockDirectory';
+import type { Stock } from '../../types';
 
 interface DiscoveryScreenProps {
   onNavigate?: (screen: string) => void;
-  onSelectCategory?: (category: string) => void;
+  onSelectCategory?: (category: DirectoryCategory) => void;
+  onSelectStock?: (stock: Stock, adjacentStocks?: Stock[]) => void;
   onBack?: () => void;
 }
 
 interface DiscoverCategory {
-  name: string;
+  category: DirectoryCategory;
   description: string;
-  stockCount: number;
 }
-
-const FALLBACK_CATEGORIES: DiscoverCategory[] = [
-  {
-    name: 'Sports & Teams',
-    description: 'Professional teams and sports brands',
-    stockCount: 18,
-  },
-  {
-    name: 'Technology',
-    description: 'Software, hardware, and digital platforms',
-    stockCount: 24,
-  },
-  {
-    name: 'Energy & Climate',
-    description: 'Traditional and renewable energy companies',
-    stockCount: 12,
-  },
-  {
-    name: 'Entertainment & Media',
-    description: 'Streaming, gaming, and media businesses',
-    stockCount: 16,
-  },
-];
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   technology: 'Software, hardware, and digital platforms',
@@ -77,7 +59,12 @@ const iconForCategory = (name: string) => {
   return Sparkles;
 };
 
-export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, onSelectCategory, onBack }) => {
+export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({
+  onNavigate,
+  onSelectCategory,
+  onSelectStock,
+  onBack,
+}) => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = isDark ? COLORS.dark.text : COLORS.light.text;
@@ -85,60 +72,59 @@ export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, on
   const textSecondary = isDark ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
   const surfaceColor = isDark ? COLORS.dark.surface : COLORS.light.surface;
   const borderColor = isDark ? COLORS.dark.border : COLORS.light.border;
-  const [categories, setCategories] = useState<DiscoverCategory[]>(FALLBACK_CATEGORIES);
+  const [categories, setCategories] = useState<DiscoverCategory[]>([]);
+  const [featuredCompanies, setFeaturedCompanies] = useState<ReturnType<typeof mapDirectoryCompany>[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedParent, setSelectedParent] = useState<DirectoryCategory | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadCategories = async () => {
-      const supabase = getSupabaseClient();
+    const loadDiscoveryData = async () => {
+      const [categoryResult, companyResult] = await Promise.allSettled([
+        fetchDirectoryCategories(),
+        fetchDirectoryPage(0, 4),
+      ]);
+      if (!isMounted) return;
 
-      try {
-        const { data: stockRows, error: stockError } = await supabase
-          .from('stocks')
-          .select('sector')
-          .limit(500);
-
-        if (stockError || !stockRows || stockRows.length === 0) {
-          return;
-        }
-
-        const grouped = new Map<string, number>();
-        stockRows.forEach((row: any) => {
-          const sectorName = (row.sector || '').toString().trim();
-          if (!sectorName) return;
-          grouped.set(sectorName, (grouped.get(sectorName) || 0) + 1);
-        });
-
-        if (!isMounted || grouped.size === 0) return;
-
-        const topCategories = Array.from(grouped.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8)
-          .map(([name, stockCount]) => ({
-            name,
-            stockCount,
-            description:
-              CATEGORY_DESCRIPTIONS[name.toLowerCase()] ||
-              `Explore ${name.toLowerCase()} stocks and trends`,
-          }));
-
-        setCategories(topCategories);
-      } catch {
-        // Keep static fallback categories when sector data is unavailable.
+      const errors: string[] = [];
+      if (categoryResult.status === 'fulfilled') {
+        setCategories(categoryResult.value.map((category) => ({
+          category,
+          description:
+            CATEGORY_DESCRIPTIONS[category.name.toLowerCase()] ||
+            `Explore ${category.name.toLowerCase()} companies`,
+        })));
+      } else {
+        console.error('Failed to load discovery categories:', categoryResult.reason);
+        errors.push(categoryResult.reason instanceof Error
+          ? categoryResult.reason.message
+          : String(categoryResult.reason));
       }
+
+      if (companyResult.status === 'fulfilled') {
+        setFeaturedCompanies(companyResult.value.map(mapDirectoryCompany));
+      } else {
+        console.error('Failed to load featured companies:', companyResult.reason);
+        errors.push(companyResult.reason instanceof Error
+          ? companyResult.reason.message
+          : String(companyResult.reason));
+      }
+      setLoadError(errors.length ? errors.join('; ') : null);
     };
 
-    loadCategories();
+    loadDiscoveryData();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const topTickers = useMemo(() => {
-    return MOCK_STOCKS.slice(0, 4).map((stock) => stock.symbol);
-  }, []);
+  const visibleCategories = selectedParent
+    ? categories.filter(({ category }) =>
+      category.kind === 'subcategory' && category.parentId === selectedParent.id,
+    )
+    : categories.filter(({ category }) => category.kind === 'parent');
 
   return (
     <div
@@ -210,18 +196,50 @@ export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, on
 
       <div className="mt-6">
         <h2 className="text-4xl font-semibold" style={{ color: textColor }}>
-          Explore by Category
+          {selectedParent?.name ?? 'Explore by Category'}
         </h2>
 
+        {selectedParent && (
+          <>
+            <button
+              type="button"
+              onClick={() => setSelectedParent(null)}
+              className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+              style={{ backgroundColor: surfaceColor, color: textColor, border: `1px solid ${borderColor}` }}
+            >
+              <ArrowLeft size={16} />
+              All categories
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onSelectCategory) {
+                  onSelectCategory(selectedParent);
+                  return;
+                }
+                onNavigate?.('search');
+              }}
+              className="mt-3 ml-2 rounded-full px-4 py-2 text-sm font-medium"
+              style={{ backgroundColor: COLORS.primary, color: 'white' }}
+            >
+              Browse all {selectedParent.name} companies
+            </button>
+          </>
+        )}
+
         <div className="grid grid-cols-2 gap-3 mt-4">
-          {categories.map((category) => {
+          {visibleCategories.map(({ category, description }) => {
             const Icon = iconForCategory(category.name);
             return (
               <button
-                key={category.name}
+                key={`${category.kind}:${category.id ?? category.slug}`}
                 onClick={() => {
+                  if (category.kind === 'parent') {
+                    setSelectedParent(category);
+                    return;
+                  }
                   if (onSelectCategory) {
-                    onSelectCategory(category.name);
+                    onSelectCategory(category);
                     return;
                   }
                   onNavigate?.('search');
@@ -240,11 +258,13 @@ export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, on
                 <div className="mt-4 text-2xl font-semibold leading-tight" style={{ color: textColor }}>
                   {category.name}
                 </div>
-                <div className="text-sm mt-1" style={{ color: textSecondary }}>
-                  {category.stockCount} stocks
-                </div>
+                {category.parentName && (
+                  <div className="text-xs mt-1" style={{ color: textSecondary }}>
+                    {category.parentName}
+                  </div>
+                )}
                 <div className="text-sm mt-3" style={{ color: textSecondary }}>
-                  {category.description}
+                  {description}
                 </div>
               </button>
             );
@@ -252,11 +272,48 @@ export const DiscoveryScreen: React.FC<DiscoveryScreenProps> = ({ onNavigate, on
         </div>
       </div>
 
-      <div className="mt-5 rounded-2xl p-4" style={{ backgroundColor: surfaceColor }}>
-        <p className="text-xs" style={{ color: textSecondary }}>
-          Trending tickers: {topTickers.join(' | ')}
+      {loadError && (
+        <p className="mt-4 text-sm" role="status" style={{ color: textSecondary }}>
+          Company discovery could not be loaded: {loadError}
         </p>
-      </div>
+      )}
+
+      {featuredCompanies.length > 0 && (
+        <section className="mt-5">
+          <h2 className="text-2xl font-semibold mb-3" style={{ color: textColor }}>
+            Featured companies
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {featuredCompanies.map((company) => (
+              <button
+                key={company.id}
+                type="button"
+                onClick={() => {
+                  if (onSelectStock) {
+                    onSelectStock(company, featuredCompanies);
+                    return;
+                  }
+                  onNavigate?.('search');
+                }}
+                className="rounded-3xl border p-4 text-left"
+                style={{ backgroundColor: surfaceColor, borderColor, minHeight: '140px' }}
+              >
+                <div className="text-lg font-semibold" style={{ color: textColor }}>
+                  {company.company}
+                </div>
+                <div className="text-sm mt-2" style={{ color: textSecondary }}>
+                  {company.tickers?.length ? company.tickers.join(' · ') : 'No ticker available'}
+                </div>
+                {(company.categoryName || company.parentCategoryName) && (
+                  <div className="text-xs mt-2" style={{ color: textSecondary }}>
+                    {company.categoryName || company.parentCategoryName}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

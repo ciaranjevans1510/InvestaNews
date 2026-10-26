@@ -1,54 +1,34 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { COLORS } from '../../utils/colors';
-import { getSupabaseClient } from '../../../lib/supabase/client';
-import { MOCK_STOCKS } from '../../utils/mockData';
+import {
+  fetchCategoryCompanies,
+  mapDirectoryCompany,
+  type DirectoryCategory,
+} from '../../../lib/stockDirectory';
 import type { Stock } from '../../types';
 
-interface CategoryStockItem {
-  id: string;
-  ticker: string;
-  companyName: string;
-  sector: string;
-  price: number;
-  change: number;
-  percentChange: number;
-}
-
 interface CategoryStocksScreenProps {
-  sector: string;
+  category: DirectoryCategory;
   onBack: () => void;
   onNavigate?: (screen: string) => void;
   onSelectStock?: (stock: Stock, adjacentStocks?: Stock[]) => void;
 }
 
-const sectorSubtitle = (sector: string) => {
-  const key = sector.toLowerCase();
+const categorySubtitle = (name: string) => {
+  const key = name.toLowerCase();
   if (key.includes('sport')) return 'Professional teams and sports brands';
   if (key.includes('tech')) return 'Software, hardware, and digital platforms';
   if (key.includes('energy')) return 'Traditional and renewable energy companies';
   if (key.includes('entertain') || key.includes('media')) return 'Streaming, gaming, and media businesses';
-  return `Explore companies in ${sector}`;
-};
-
-const badgeForTicker = (ticker: string) => {
-  const key = ticker.toUpperCase();
-  if (key === 'NKE') return 'NK';
-  if (key === 'DKNG') return 'DK';
-  if (key === 'MGM') return 'MG';
-  if (key === 'DIS') return 'DS';
-  if (key === 'AAPL') return 'AP';
-  if (key === 'TSLA') return 'TS';
-  if (key === 'NVDA') return 'NV';
-  if (key === 'MSFT') return 'MS';
-  return key.slice(0, 2);
+  return `Explore companies in ${name}`;
 };
 
 export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
-  sector,
+  category,
   onBack,
   onNavigate,
   onSelectStock,
@@ -59,81 +39,55 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
   const textSecondary = isDark ? COLORS.dark.textSecondary : COLORS.light.textSecondary;
   const borderColor = isDark ? COLORS.dark.border : COLORS.light.border;
 
-  const [stocks, setStocks] = useState<CategoryStockItem[]>([]);
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const pageSize = 50;
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadSectorStocks = async () => {
-      const supabase = getSupabaseClient();
-
+    const loadCategoryStocks = async () => {
       try {
-        const { data, error } = await supabase
-          .from('stocks')
-          .select('id, ticker, company_name, sector')
-          .eq('sector', sector)
-          .limit(50);
-
-        if (!error && data && data.length > 0 && isMounted) {
-          const rows = data.map((row: any) => ({
-            id: String(row.id ?? row.ticker),
-            ticker: String(row.ticker ?? '').toUpperCase(),
-            companyName: String(row.company_name ?? '').trim() || 'Unknown company',
-            sector: String(row.sector ?? sector),
-            price: Number(row.price ?? 0),
-            change: Number(row.change ?? 0),
-            percentChange: Number(row.percent_change ?? 0),
-          }));
-          setStocks(rows);
-          return;
-        }
-      } catch {
-        // Fall through to local fallback list.
+        const rows = await fetchCategoryCompanies(category, 0, pageSize);
+        if (!isMounted) return;
+        setStocks(rows.map(mapDirectoryCompany));
+        setHasMore(rows.length === pageSize);
+        setLoadError(false);
+      } catch (error) {
+        console.error('Failed to load companies in category:', error);
+        if (isMounted) setLoadError(true);
       }
-
-      if (!isMounted) return;
-
-      const fallback = MOCK_STOCKS.filter(
-        (stock) => stock.sector.toLowerCase() === sector.toLowerCase(),
-      ).map((stock) => ({
-        id: stock.id,
-        ticker: stock.symbol,
-        companyName: stock.company,
-        sector: stock.sector,
-        price: stock.price,
-        change: stock.change,
-        percentChange: stock.percentChange,
-      }));
-
-      setStocks(fallback);
     };
 
-    loadSectorStocks();
+    setStocks([]);
+    setHasMore(false);
+    setLoadError(false);
+    loadCategoryStocks();
 
     return () => {
       isMounted = false;
     };
-  }, [sector]);
+  }, [category]);
 
-  const subtitle = useMemo(() => sectorSubtitle(sector), [sector]);
+  const subtitle = categorySubtitle(category.name);
 
-  const toAppStock = (item: CategoryStockItem): Stock => {
-    const sectorKey = item.sector.toLowerCase() as keyof typeof COLORS.sectors;
-    return {
-      id: item.id,
-      symbol: item.ticker,
-      company: item.companyName,
-      price: item.price,
-      change: item.change,
-      percentChange: item.percentChange,
-      sector: item.sector,
-      sectorColor: COLORS.sectors[sectorKey] || COLORS.primary,
-    };
+  const loadMore = async () => {
+    if (isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const rows = await fetchCategoryCompanies(category, stocks.length, pageSize);
+      const nextStocks = rows.map(mapDirectoryCompany);
+      setStocks((current) => [...current, ...nextStocks]);
+      setHasMore(rows.length === pageSize);
+    } catch (error) {
+      console.error('Failed to load more companies in category:', error);
+      setLoadError(true);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
-
-  const appStocks = useMemo(() => {
-    return stocks.map((item) => toAppStock(item));
-  }, [stocks]);
 
   return (
     <div
@@ -159,10 +113,10 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
 
       <div className="pt-6">
         <h1 className="text-6xl font-bold leading-none" style={{ color: textColor }}>
-          {sector}
+          {category.name}
         </h1>
         <p className="text-sm mt-3" style={{ color: textSecondary }}>
-          {subtitle}
+          {category.parentName ? `${category.parentName} · ${subtitle}` : subtitle}
         </p>
       </div>
 
@@ -171,9 +125,8 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
           <button
             key={stock.id}
             onClick={() => {
-              const appStock = toAppStock(stock);
               if (onSelectStock) {
-                onSelectStock(appStock, appStocks);
+                onSelectStock(stock, stocks);
                 return;
               }
               onNavigate?.('search');
@@ -196,14 +149,14 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
                     color: textColor,
                   }}
                 >
-                  {badgeForTicker(stock.ticker)}
+                  {stock.company.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <div className="text-4xl font-bold leading-none" style={{ color: textColor }}>
-                    {stock.ticker}
+                      {stock.company}
                   </div>
                   <div className="text-base mt-2 truncate" style={{ color: textSecondary }}>
-                    {stock.companyName}
+                      {stock.tickers?.length ? stock.tickers.join(' · ') : 'No ticker available'}
                   </div>
                   {stock.sector && (
                     <div
@@ -223,7 +176,13 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
           </button>
         ))}
 
-        {stocks.length === 0 && (
+        {loadError && (
+          <div className="rounded-3xl border p-6" role="status" style={{ borderColor, color: textColor }}>
+            Companies could not be loaded. Please try again later.
+          </div>
+        )}
+
+        {!loadError && stocks.length === 0 && (
           <div
             className="rounded-3xl border p-6"
             style={{
@@ -238,6 +197,17 @@ export const CategoryStocksScreen: React.FC<CategoryStocksScreenProps> = ({
               Try another sector from Discover.
             </p>
           </div>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+            className="w-full rounded-full py-4 text-lg font-medium disabled:opacity-60"
+            style={{ backgroundColor: COLORS.primary, color: 'white' }}
+          >
+            {isLoadingMore ? 'Loading...' : 'Load more companies'}
+          </button>
         )}
       </div>
     </div>
